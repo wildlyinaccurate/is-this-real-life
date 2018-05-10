@@ -51,6 +51,8 @@ initialModel =
     , world =
         square 12 (\_ -> Empty)
             |> set (loc 5 6) (Resource 5)
+            |> set (loc 2 3) (Resource 5)
+            |> set (loc 7 7) (Resource 5)
     }
 
 
@@ -97,7 +99,14 @@ update msg model =
 processLifeTurn : World -> Life -> World
 processLifeTurn world life =
     case getFirstNeighbouringResource world life.location of
-        Just (Resource _) ->
+        Just ( location, Resource energy ) ->
+            if energy > 1 then
+                Matrix.update location (\_ -> Resource (energy - 1)) world
+            else
+                Matrix.update location (\_ -> Empty) world
+
+        Nothing ->
+            -- TODO: Move life
             world
 
         _ ->
@@ -114,17 +123,35 @@ isResourceTile tile =
             False
 
 
-getFirstNeighbouringResource : World -> Location -> Maybe Tile
+getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringResource world location =
     getNeighbours world location
-        |> List.map (Maybe.withDefault Empty)
-        |> List.filter isResourceTile
+        |> List.map (\( loc, mTile ) -> ( loc, Maybe.withDefault Empty mTile ))
+        |> List.filter (\( _, tile ) -> isResourceTile tile)
         |> List.head
 
 
-getNeighbours : World -> Location -> List (Maybe Tile)
-getNeighbours world loc =
-    List.map (\(x, y) -> Matrix.get ( x, y ) world) [(1, 1)]
+getNeighbours : World -> Location -> List ( Location, Maybe Tile )
+getNeighbours world origin =
+    let
+        row =
+            Matrix.row origin
+
+        col =
+            Matrix.col origin
+
+        neighbourLocs =
+            [ ( row - 1, col - 1 )
+            , ( row - 1, col )
+            , ( row - 1, col + 1 )
+            , ( row, col - 1 )
+            , ( row, col + 1 )
+            , ( row + 1, col - 1 )
+            , ( row + 1, col )
+            , ( row + 1, col + 1 )
+            ]
+    in
+    List.map (\( x, y ) -> ( loc x y, Matrix.get ( x, y ) world )) neighbourLocs
 
 
 
