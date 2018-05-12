@@ -1,3 +1,12 @@
+-- Hi Joseph!
+-- Here's your TODO list:
+--   * If there are no neighbouring resources, find the closest resource tile and move towards it
+--   * If there are no resource tiles, do nothing to conserve energy
+--   * Randomly spawn resources
+--   * Write messages to a log so that you can narrate what is happening on each turn
+--
+
+
 module Main exposing (..)
 
 import Html exposing (Html, button, div, program, text)
@@ -22,13 +31,6 @@ main =
 type alias Model =
     { step : Int
     , world : World
-    , life : Life
-    }
-
-
-type alias Life =
-    { location : Location
-    , energy : Int
     }
 
 
@@ -37,22 +39,20 @@ type alias World =
 
 
 type Tile
-    = Resource Int
+    = Life Int
+    | Resource Int
     | Empty
 
 
 initialModel : Model
 initialModel =
     { step = 0
-    , life =
-        { location = loc 5 5
-        , energy = 10
-        }
     , world =
         square 12 (\_ -> Empty)
+            |> set (loc 5 5) (Life 5)
             |> set (loc 5 6) (Resource 5)
-            |> set (loc 2 3) (Resource 5)
-            |> set (loc 7 7) (Resource 5)
+            |> set (loc 2 3) (Resource 2)
+            |> set (loc 7 7) (Resource 10)
     }
 
 
@@ -68,21 +68,7 @@ init =
 type Msg
     = NextStep
     | DoLife
-
-
-
--- Hi Joseph!
--- You've just moved "life" into the model rather than in the grid because that
--- will allow you to move life without having to modify the grid in one update
--- cycle. The next step would be to do something like:
---   1. Get neighbouring tiles that contain resources
---   2a. If there are some, increase the life energy and decrease the resource
---   2b. If there are none, find the closest resource tile and move towards it
---   3. If there are no resource tiles, do nothing to conserve energy
---   4. Write the code that randomly spawns resources
---   5. Figure out a way to write messages to a log so that you can narrate what
---      is happening on each turn
---
+    | MoveLife
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -93,30 +79,90 @@ update msg model =
                 |> update DoLife
 
         DoLife ->
-            ( { model | world = processLifeTurn model.world model.life }, Cmd.none )
+            ( { model | world = processLifeTurn model.world }, Cmd.none )
+
+        MoveLife ->
+            ( model, Cmd.none )
 
 
-processLifeTurn : World -> Life -> World
-processLifeTurn world life =
-    case getFirstNeighbouringResource world life.location of
+processLifeTurn : World -> World
+processLifeTurn world =
+    let
+        lifeLoc =
+            getLifeLocation world
+
+        firstNeighbouringResource =
+            getFirstNeighbouringResource world lifeLoc
+
+        incrementLifeEnergy tile =
+            case tile of
+                Life energy ->
+                    Life (energy + 1)
+
+                _ ->
+                    -- Shouldn't happen..?
+                    Life 1
+    in
+    case firstNeighbouringResource of
         Just ( location, Resource energy ) ->
             if energy > 1 then
                 Matrix.update location (\_ -> Resource (energy - 1)) world
+                    |> Matrix.update lifeLoc incrementLifeEnergy
             else
                 Matrix.update location (\_ -> Empty) world
+                    |> Matrix.update lifeLoc incrementLifeEnergy
 
         Nothing ->
-            -- TODO: Move life
             world
 
         _ ->
             world
 
 
-isResourceTile : Tile -> Bool
-isResourceTile tile =
+getLifeLocation : World -> Location
+getLifeLocation world =
+    let
+        lastColIndex =
+            Matrix.colCount world - 1
+
+        lastRowIndex =
+            Matrix.rowCount world - 1
+
+        cols =
+            List.range 0 lastColIndex
+
+        rows =
+            List.range 0 lastRowIndex
+
+        life =
+            List.concatMap (\col -> List.map (\row -> getTileWithLocation world row col) rows) cols
+                |> List.filter (\( tile, _ ) -> isLifeTile tile)
+                |> List.head
+    in
+    case life of
+        Just ( _, location ) ->
+            location
+
+        Nothing ->
+            loc 0 0
+
+
+getTileWithLocation : World -> Int -> Int -> ( Tile, Location )
+getTileWithLocation world row col =
+    let
+        location =
+            loc row col
+
+        tile =
+            Matrix.get location world
+    in
+    ( Maybe.withDefault Empty tile, location )
+
+
+isLifeTile : Tile -> Bool
+isLifeTile tile =
     case tile of
-        Resource _ ->
+        Life _ ->
             True
 
         _ ->
@@ -154,6 +200,16 @@ getNeighbours world origin =
     List.map (\( x, y ) -> ( loc x y, Matrix.get ( x, y ) world )) neighbourLocs
 
 
+isResourceTile : Tile -> Bool
+isResourceTile tile =
+    case tile of
+        Resource _ ->
+            True
+
+        _ ->
+            False
+
+
 
 -- SUBSCRIPTIONS
 
@@ -175,25 +231,25 @@ view model =
             [ text ("Current Step: " ++ toString model.step ++ " / ")
             , button [ onClick NextStep ] [ text "Next Step" ]
             ]
-        , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(12, 40px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation (renderTile model.life) model.world))
+        , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(12, 40px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
 
 
-renderTile : Life -> Location -> Tile -> Html Msg
-renderTile life tileLoc tile =
-    if tileLoc == life.location then
-        div [ style (( "background", "rgba(255, 0, 0, 1)" ) :: tileStyle) ] [ text (toString life.energy) ]
-    else
-        case tile of
-            Empty ->
-                div [ style (( "background", "rgba(0, 0, 0, 0.8)" ) :: tileStyle) ] []
+renderTile : Location -> Tile -> Html Msg
+renderTile tileLoc tile =
+    case tile of
+        Life energy ->
+            div [ style (( "background", "rgba(255, 0, 0, 1)" ) :: tileStyle) ] [ text (toString energy) ]
 
-            Resource energy ->
-                let
-                    energyAsFloat =
-                        toString (toFloat energy / 10)
-                in
-                div [ style (( "background", "rgba(0, 202, 0, " ++ energyAsFloat ++ ")" ) :: tileStyle) ] [ text (toString energy) ]
+        Resource energy ->
+            let
+                energyAsFloat =
+                    toString (toFloat energy / 10)
+            in
+            div [ style (( "background", "rgba(0, 202, 0, " ++ energyAsFloat ++ ")" ) :: tileStyle) ] [ text (toString energy) ]
+
+        Empty ->
+            div [ style (( "background", "rgba(0, 0, 0, 0.8)" ) :: tileStyle) ] []
 
 
 tileStyle =
