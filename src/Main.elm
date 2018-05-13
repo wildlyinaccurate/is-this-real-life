@@ -185,11 +185,13 @@ moveTowardsClosestResource world lifeLoc =
                 |> List.reverse
                 -- TODO: Sort by distance to life location (currently sorting by energy)
                 |> List.head
-                |> Debug.log "Moving towards"
     in
     case closestResource of
         Just ( resourceLoc, Resource energy ) ->
             let
+                _ =
+                    Debug.log "Expending energy to move towards" resourceLoc
+
                 lRow =
                     Matrix.row lifeLoc
 
@@ -202,27 +204,34 @@ moveTowardsClosestResource world lifeLoc =
                 rCol =
                     Matrix.col resourceLoc
 
-                life =
-                    Matrix.get lifeLoc world
-                        |> Maybe.withDefault Empty
+                lifeEnergy =
+                    case Matrix.get lifeLoc world of
+                        Just (Life energy) ->
+                            energy
+
+                        Just notLifeTile ->
+                            Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found " ++ toString notLifeTile
+
+                        Nothing ->
+                            Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found nothing. Absolutely NOTHING"
             in
             if lRow > rRow then
-                Matrix.set (loc (lRow - 1) lCol) life world
+                Matrix.set (loc (lRow - 1) lCol) (Life (lifeEnergy - 1)) world
                     |> Matrix.set lifeLoc Empty
             else if lRow < rRow then
-                Matrix.set (loc (lRow + 1) lCol) life world
+                Matrix.set (loc (lRow + 1) lCol) (Life (lifeEnergy - 1)) world
                     |> Matrix.set lifeLoc Empty
             else if lCol > rCol then
-                Matrix.set (loc lRow (lCol - 1)) life world
+                Matrix.set (loc lRow (lCol - 1)) (Life (lifeEnergy - 1)) world
                     |> Matrix.set lifeLoc Empty
             else if lCol < rCol then
-                Matrix.set (loc lRow (lCol + 1)) life world
+                Matrix.set (loc lRow (lCol + 1)) (Life (lifeEnergy - 1)) world
                     |> Matrix.set lifeLoc Empty
             else
                 Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
 
         _ ->
-            Debug.log "No more resources to move to!" world
+            Debug.log "No more resources to move to" world
 
 
 tileEnergy : Tile -> Int
