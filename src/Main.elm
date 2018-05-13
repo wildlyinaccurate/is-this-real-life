@@ -44,15 +44,26 @@ type Tile
     | Empty
 
 
+worldSize : Int
+worldSize =
+    24
+
+
 initialModel : Model
 initialModel =
     { step = 0
     , world =
-        square 12 (\_ -> Empty)
-            |> set (loc 5 5) (Life 5)
+        square worldSize (\_ -> Empty)
+            |> set (loc 11 11) (Life 10)
+            |> set (loc 2 14) (Resource 2)
+            |> set (loc 3 22) (Resource 6)
             |> set (loc 5 6) (Resource 5)
-            |> set (loc 2 3) (Resource 2)
             |> set (loc 7 7) (Resource 10)
+            |> set (loc 10 11) (Resource 6)
+            |> set (loc 14 4) (Resource 7)
+            |> set (loc 17 9) (Resource 9)
+            |> set (loc 14 21) (Resource 1)
+            |> set (loc 23 17) (Resource 4)
     }
 
 
@@ -310,7 +321,7 @@ view model =
             [ text ("Current Step: " ++ toString model.step ++ " / ")
             , button [ onClick NextStep ] [ text "Next Step" ]
             ]
-        , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(12, 40px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation renderTile model.world))
+        , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(" ++ toString worldSize ++ ", 28px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
 
 
@@ -336,6 +347,6 @@ tileStyle =
     , ( "color", "rgba(255, 255, 255, 1)" )
     , ( "display", "grid" )
     , ( "font-family", "monospace" )
-    , ( "height", "40px" )
+    , ( "height", "28px" )
     , ( "text-shadow", "0 1px 6px rgba(0, 0, 0, 0.8)" )
     ]
