@@ -98,10 +98,10 @@ processLifeTurn world =
             case tile of
                 Life energy ->
                     Life (energy + 1)
+                        |> Debug.log "Life took some energy from a resource"
 
                 _ ->
-                    -- Shouldn't happen..?
-                    Life 1
+                    Debug.crash "Tried to increment energy of a non-life tile"
     in
     case firstNeighbouringResource of
         Just ( location, Resource energy ) ->
@@ -113,7 +113,7 @@ processLifeTurn world =
                     |> Matrix.update lifeLoc incrementLifeEnergy
 
         Nothing ->
-            world
+            moveTowardsClosestResource world lifeLoc
 
         _ ->
             world
@@ -121,6 +121,22 @@ processLifeTurn world =
 
 getLifeLocation : World -> Location
 getLifeLocation world =
+    let
+        life =
+            getAllTilesWithLocation world
+                |> List.filter (\( _, tile ) -> isLifeTile tile)
+                |> List.head
+    in
+    case life of
+        Just ( location, _ ) ->
+            location
+
+        Nothing ->
+            Debug.crash "Couldn't find a life tile in the world!"
+
+
+getAllTilesWithLocation : World -> List ( Location, Tile )
+getAllTilesWithLocation world =
     let
         lastColIndex =
             Matrix.colCount world - 1
@@ -133,21 +149,11 @@ getLifeLocation world =
 
         rows =
             List.range 0 lastRowIndex
-
-        life =
-            List.concatMap (\col -> List.map (\row -> getTileWithLocation world row col) rows) cols
-                |> List.filter (\( tile, _ ) -> isLifeTile tile)
-                |> List.head
     in
-    case life of
-        Just ( _, location ) ->
-            location
-
-        Nothing ->
-            loc 0 0
+    List.concatMap (\col -> List.map (\row -> getTileWithLocation world row col) rows) cols
 
 
-getTileWithLocation : World -> Int -> Int -> ( Tile, Location )
+getTileWithLocation : World -> Int -> Int -> ( Location, Tile )
 getTileWithLocation world row col =
     let
         location =
@@ -156,7 +162,7 @@ getTileWithLocation world row col =
         tile =
             Matrix.get location world
     in
-    ( Maybe.withDefault Empty tile, location )
+    ( location, Maybe.withDefault Empty tile )
 
 
 isLifeTile : Tile -> Bool
@@ -169,12 +175,76 @@ isLifeTile tile =
             False
 
 
+moveTowardsClosestResource : World -> Location -> World
+moveTowardsClosestResource world lifeLoc =
+    let
+        closestResource =
+            getAllTilesWithLocation world
+                |> List.filter (\( _, tile ) -> isResourceTile tile)
+                |> List.sortBy (\( _, tile ) -> tileEnergy tile)
+                |> List.reverse
+                -- TODO: Sort by distance to life location (currently sorting by energy)
+                |> List.head
+                |> Debug.log "Moving towards"
+    in
+    case closestResource of
+        Just ( resourceLoc, Resource energy ) ->
+            let
+                lRow =
+                    Matrix.row lifeLoc
+
+                lCol =
+                    Matrix.col lifeLoc
+
+                rRow =
+                    Matrix.row resourceLoc
+
+                rCol =
+                    Matrix.col resourceLoc
+
+                life =
+                    Matrix.get lifeLoc world
+                        |> Maybe.withDefault Empty
+            in
+            if lRow > rRow then
+                Matrix.set (loc (lRow - 1) lCol) life world
+                    |> Matrix.set lifeLoc Empty
+            else if lRow < rRow then
+                Matrix.set (loc (lRow + 1) lCol) life world
+                    |> Matrix.set lifeLoc Empty
+            else if lCol > rCol then
+                Matrix.set (loc lRow (lCol - 1)) life world
+                    |> Matrix.set lifeLoc Empty
+            else if lCol < rCol then
+                Matrix.set (loc lRow (lCol + 1)) life world
+                    |> Matrix.set lifeLoc Empty
+            else
+                Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
+
+        _ ->
+            Debug.log "No more resources to move to!" world
+
+
+tileEnergy : Tile -> Int
+tileEnergy tile =
+    case tile of
+        Resource energy ->
+            energy
+
+        Life energy ->
+            energy
+
+        Empty ->
+            0
+
+
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringResource world location =
     getNeighbours world location
         |> List.map (\( loc, mTile ) -> ( loc, Maybe.withDefault Empty mTile ))
         |> List.filter (\( _, tile ) -> isResourceTile tile)
         |> List.head
+        |> Debug.log "First neighbouring resource"
 
 
 getNeighbours : World -> Location -> List ( Location, Maybe Tile )
