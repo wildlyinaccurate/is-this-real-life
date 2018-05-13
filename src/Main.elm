@@ -4,6 +4,20 @@ import Html exposing (Html, button, div, program, text)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick)
 import Matrix exposing (Location, Matrix, loc, mapWithLocation, set, square)
+import Random exposing (Generator)
+import Time exposing (Time, millisecond)
+
+
+randomResourceParams : Generator ( Int, Int, Int )
+randomResourceParams =
+    let
+        max =
+            worldSize - 1
+
+        makeTriple a b c =
+            ( a, b, c )
+    in
+    Random.map3 makeTriple (Random.int 0 max) (Random.int 0 max) (Random.int 1 10)
 
 
 main =
@@ -22,6 +36,7 @@ main =
 type alias Model =
     { step : Int
     , world : World
+    , autoplay : Bool
     }
 
 
@@ -43,6 +58,7 @@ worldSize =
 initialModel : Model
 initialModel =
     { step = 0
+    , autoplay = False
     , world =
         square worldSize (\_ -> Empty)
             |> set (loc 11 11) (Life 10)
@@ -69,22 +85,70 @@ init =
 
 type Msg
     = NextStep
+    | Tick Time
+    | ToggleAutoPlay Bool
     | DoLife
-    | MoveLife
+    | GrowResources Int
+    | SpawnRandomResource ( Int, Int, Int )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Tick _ ->
+            update NextStep model
+
+        ToggleAutoPlay b ->
+            ( { model | autoplay = b }, Cmd.none )
+
         NextStep ->
             { model | step = model.step + 1 }
                 |> update DoLife
 
         DoLife ->
-            ( { model | world = processLifeTurn model.world }, Cmd.none )
+            ( { model | world = processLifeTurn model.world }, Random.generate GrowResources (Random.int 1 50) )
 
-        MoveLife ->
-            ( model, Cmd.none )
+        GrowResources x ->
+            if x <= 5 then
+                ( model, Random.generate SpawnRandomResource randomResourceParams )
+            else if x <= 10 then
+                -- TODO: Increase energy of random resource
+                ( model, Cmd.none )
+            else
+                ( model, Cmd.none )
+
+        SpawnRandomResource ( x, y, increaseAmount ) ->
+            let
+                location =
+                    loc x y |> Debug.log ("Sprinkling " ++ toString increaseAmount ++ " energy at")
+            in
+            ( { model | world = Matrix.update location (increaseTileEnergy increaseAmount) model.world }, Cmd.none )
+
+
+increaseTileEnergy : Int -> Tile -> Tile
+increaseTileEnergy amount tile =
+    case tile of
+        Life energy ->
+            tile
+                |> Debug.log "Life was blessed with random energy but the world is cruel coveted the energy for itself"
+
+        Resource energy ->
+            Resource (energy + amount)
+                |> Debug.log "Resource grew itself"
+
+        Empty ->
+            Resource amount |> Debug.log "New resource spawned"
+
+
+incrementLifeEnergy : Tile -> Tile
+incrementLifeEnergy tile =
+    case tile of
+        Life energy ->
+            Life (energy + 1)
+                |> Debug.log "Life took some energy from a resource"
+
+        _ ->
+            tile |> Debug.log "Tried to increment life energy but tile was"
 
 
 processLifeTurn : World -> World
@@ -95,15 +159,6 @@ processLifeTurn world =
 
         firstNeighbouringResource =
             getFirstNeighbouringResource world lifeLoc
-
-        incrementLifeEnergy tile =
-            case tile of
-                Life energy ->
-                    Life (energy + 1)
-                        |> Debug.log "Life took some energy from a resource"
-
-                _ ->
-                    Debug.crash "Tried to increment energy of a non-life tile"
     in
     case firstNeighbouringResource of
         Just ( location, Resource energy ) ->
@@ -297,7 +352,10 @@ isResourceTile tile =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    if model.autoplay == True then
+        Time.every (millisecond * 200) Tick
+    else
+        Sub.none
 
 
 
@@ -309,8 +367,12 @@ view model =
     div [ style [ ( "text-align", "center" ), ( "padding", "2em" ) ] ]
         [ div
             [ class "controls", style [ ( "margin-bottom", "2em" ) ] ]
-            [ text ("Current Step: " ++ toString model.step ++ " / ")
+            [ text ("Current Step: " ++ toString model.step ++ " | ")
             , button [ onClick NextStep ] [ text "Next Step" ]
+            , if model.autoplay then
+                button [ onClick (ToggleAutoPlay False) ] [ text "Turn Autoplay Off" ]
+              else
+                button [ onClick (ToggleAutoPlay True) ] [ text "Turn Autoplay On" ]
             ]
         , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(" ++ toString worldSize ++ ", 28px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
