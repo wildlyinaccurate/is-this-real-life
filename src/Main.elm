@@ -204,10 +204,10 @@ moveTowardsClosestResource world lifeLoc =
                 rCol =
                     Matrix.col resourceLoc
 
-                lifeEnergy =
+                newLifeTile =
                     case Matrix.get lifeLoc world of
                         Just (Life energy) ->
-                            energy
+                            Life (energy - 1)
 
                         Just notLifeTile ->
                             Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found " ++ toString notLifeTile
@@ -216,17 +216,17 @@ moveTowardsClosestResource world lifeLoc =
                             Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found nothing. Absolutely NOTHING"
             in
             if lRow > rRow then
-                Matrix.set (loc (lRow - 1) lCol) (Life (lifeEnergy - 1)) world
-                    |> Matrix.set lifeLoc Empty
+                Matrix.set lifeLoc Empty world
+                    |> Matrix.set (loc (lRow - 1) lCol) newLifeTile
             else if lRow < rRow then
-                Matrix.set (loc (lRow + 1) lCol) (Life (lifeEnergy - 1)) world
-                    |> Matrix.set lifeLoc Empty
+                Matrix.set lifeLoc Empty world
+                    |> Matrix.set (loc (lRow + 1) lCol) newLifeTile
             else if lCol > rCol then
-                Matrix.set (loc lRow (lCol - 1)) (Life (lifeEnergy - 1)) world
-                    |> Matrix.set lifeLoc Empty
+                Matrix.set lifeLoc Empty world
+                    |> Matrix.set (loc lRow (lCol - 1)) newLifeTile
             else if lCol < rCol then
-                Matrix.set (loc lRow (lCol + 1)) (Life (lifeEnergy - 1)) world
-                    |> Matrix.set lifeLoc Empty
+                Matrix.set lifeLoc Empty world
+                    |> Matrix.set (loc lRow (lCol + 1)) newLifeTile
             else
                 Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
 
