@@ -1,12 +1,3 @@
--- Hi Joseph!
--- Here's your TODO list:
---   * If there are no neighbouring resources, find the closest resource tile and move towards it
---   * If there are no resource tiles, do nothing to conserve energy
---   * Randomly spawn resources
---   * Write messages to a log so that you can narrate what is happening on each turn
---
-
-
 module Main exposing (..)
 
 import Html exposing (Html, button, div, program, text)
