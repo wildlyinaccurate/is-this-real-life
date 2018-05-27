@@ -5,6 +5,7 @@ import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick)
 import Matrix exposing (Location, Matrix, loc, mapWithLocation, set, square)
 import Random exposing (Generator)
+import Tile exposing (..)
 import Time exposing (Time, millisecond)
 
 
@@ -42,12 +43,6 @@ type alias Model =
 
 type alias World =
     Matrix Tile
-
-
-type Tile
-    = Life Int
-    | Resource Int
-    | Empty
 
 
 worldSize : Int
@@ -125,32 +120,6 @@ update msg model =
             ( { model | world = Matrix.update location (increaseTileEnergy increaseAmount) model.world }, Cmd.none )
 
 
-increaseTileEnergy : Int -> Tile -> Tile
-increaseTileEnergy amount tile =
-    case tile of
-        Life energy ->
-            tile
-                |> Debug.log "Life was blessed with random energy but the world is cruel coveted the energy for itself"
-
-        Resource energy ->
-            Resource (energy + amount)
-                |> Debug.log "Resource grew itself"
-
-        Empty ->
-            Resource amount |> Debug.log "New resource spawned"
-
-
-incrementLifeEnergy : Tile -> Tile
-incrementLifeEnergy tile =
-    case tile of
-        Life energy ->
-            Life (energy + 1)
-                |> Debug.log "Life took some energy from a resource"
-
-        _ ->
-            tile |> Debug.log "Tried to increment life energy but tile was"
-
-
 processLifeTurn : World -> World
 processLifeTurn world =
     let
@@ -222,16 +191,6 @@ getTileWithLocation world row col =
     ( location, Maybe.withDefault Empty tile )
 
 
-isLifeTile : Tile -> Bool
-isLifeTile tile =
-    case tile of
-        Life _ ->
-            True
-
-        _ ->
-            False
-
-
 moveTowardsClosestResource : World -> Location -> World
 moveTowardsClosestResource world lifeLoc =
     let
@@ -291,19 +250,6 @@ moveTowardsClosestResource world lifeLoc =
             Debug.log "No more resources to move to" world
 
 
-tileEnergy : Tile -> Int
-tileEnergy tile =
-    case tile of
-        Resource energy ->
-            energy
-
-        Life energy ->
-            energy
-
-        Empty ->
-            0
-
-
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringResource world location =
     getNeighbours world location
@@ -334,16 +280,6 @@ getNeighbours world origin =
             ]
     in
     List.map (\( x, y ) -> ( loc x y, Matrix.get ( x, y ) world )) neighbourLocs
-
-
-isResourceTile : Tile -> Bool
-isResourceTile tile =
-    case tile of
-        Resource _ ->
-            True
-
-        _ ->
-            False
 
 
 
