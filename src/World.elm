@@ -8,31 +8,6 @@ type alias World =
     Matrix Tile
 
 
-processLifeTurn : World -> World
-processLifeTurn world =
-    let
-        lifeLoc =
-            getLifeLocation world
-
-        firstNeighbouringResource =
-            getFirstNeighbouringResource world lifeLoc
-    in
-    case firstNeighbouringResource of
-        Just ( location, Resource energy ) ->
-            if energy > 1 then
-                Matrix.update location (\_ -> Resource (energy - 1)) world
-                    |> Matrix.update lifeLoc incrementLifeEnergy
-            else
-                Matrix.update location (\_ -> Empty) world
-                    |> Matrix.update lifeLoc incrementLifeEnergy
-
-        Nothing ->
-            moveTowardsClosestResource world lifeLoc
-
-        _ ->
-            world
-
-
 getLifeTileWithLocation : World -> ( Location, Tile )
 getLifeTileWithLocation world =
     let
@@ -97,14 +72,25 @@ getTileWithLocation world row col =
     ( location, Maybe.withDefault Empty tile )
 
 
-moveTowardsClosestResource : World -> Location -> World
-moveTowardsClosestResource world lifeLoc =
+moveTowardsClosestResource : World -> Location -> Int -> World
+moveTowardsClosestResource world lifeLoc ignoreEnergyLessThan =
     let
         closestResource =
             getAllTilesWithLocation world
-                |> List.filter (\( _, tile ) -> isResourceTile tile)
+                |> List.filter (\( _, tile ) -> isResourceTile tile && tileEnergy tile > ignoreEnergyLessThan)
                 |> List.sortBy (\( tileLoc, tile ) -> distanceBetweenLocations lifeLoc tileLoc)
                 |> List.head
+
+        lifeEnergy =
+            case Matrix.get lifeLoc world of
+                Just (Life energy) ->
+                    energy
+
+                Just notLifeTile ->
+                    Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found " ++ toString notLifeTile
+
+                Nothing ->
+                    Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found nothing. Absolutely NOTHING"
     in
     case closestResource of
         Just ( resourceLoc, Resource energy ) ->
@@ -125,15 +111,7 @@ moveTowardsClosestResource world lifeLoc =
                     Matrix.col resourceLoc
 
                 newLifeTile =
-                    case Matrix.get lifeLoc world of
-                        Just (Life energy) ->
-                            Life (energy - 1)
-
-                        Just notLifeTile ->
-                            Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found " ++ toString notLifeTile
-
-                        Nothing ->
-                            Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found nothing. Absolutely NOTHING"
+                    Life (lifeEnergy - 1)
             in
             if lRow > rRow then
                 Matrix.set lifeLoc Empty world
@@ -151,7 +129,8 @@ moveTowardsClosestResource world lifeLoc =
                 Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
 
         _ ->
-            Debug.log "No more resources to move to" world
+            Matrix.set lifeLoc (Life (lifeEnergy - 1)) world
+                |> Debug.log "No more resources to move to. Staying put."
 
 
 distanceBetweenLocations : Location -> Location -> Float

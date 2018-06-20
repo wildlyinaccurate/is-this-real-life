@@ -1,8 +1,8 @@
 module Main exposing (..)
 
-import Html exposing (Html, button, div, program, span, text)
-import Html.Attributes exposing (class, style)
-import Html.Events exposing (onClick)
+import Html exposing (Html, button, div, input, program, span, text)
+import Html.Attributes exposing (class, size, style, type_, value)
+import Html.Events exposing (onClick, onInput)
 import Matrix exposing (Location, Matrix, loc, mapWithLocation, set, square)
 import Random exposing (Generator)
 import Tile exposing (..)
@@ -41,6 +41,7 @@ type alias Model =
     , world : World
     , autoplay : Bool
     , autoplaySpeed : Int
+    , ignoreEnergyLessThan : Int
     }
 
 
@@ -59,6 +60,7 @@ initialModel =
     , gameOver = False
     , autoplay = False
     , autoplaySpeed = 5
+    , ignoreEnergyLessThan = 1
     , world =
         square worldSize (\_ -> Empty)
             |> set (loc 11 11) (Life 20)
@@ -89,6 +91,7 @@ type Msg
     | ToggleAutoPlay Bool
     | DecreaseSpeed
     | IncreaseSpeed
+    | UpdateEnergyThreshold String
     | DoLife
     | GrowResources Int
     | SpawnRandomResource ( Int, Int, Int )
@@ -109,6 +112,9 @@ update msg model =
         IncreaseSpeed ->
             ( { model | autoplaySpeed = min 20 (model.autoplaySpeed + 1) }, Cmd.none )
 
+        UpdateEnergyThreshold value ->
+            ( { model | ignoreEnergyLessThan = Result.withDefault 0 (String.toInt value) }, Cmd.none )
+
         NextStep ->
             let
                 lifeEnergy =
@@ -126,7 +132,7 @@ update msg model =
                 ( { model | autoplay = False, gameOver = True }, Cmd.none )
 
         DoLife ->
-            ( { model | world = processLifeTurn model.world }, Random.generate GrowResources (Random.int 1 resourceSpawnChance) )
+            ( { model | world = processLifeTurn model }, Random.generate GrowResources (Random.int 1 resourceSpawnChance) )
 
         GrowResources x ->
             if x <= 5 then
@@ -143,6 +149,34 @@ update msg model =
                     loc x y |> Debug.log ("Sprinkling " ++ toString increaseAmount ++ " energy at")
             in
             ( { model | world = Matrix.update location (increaseTileEnergy increaseAmount) model.world }, Cmd.none )
+
+
+processLifeTurn : Model -> World
+processLifeTurn model =
+    let
+        world =
+            model.world
+
+        lifeLoc =
+            getLifeLocation world
+
+        firstNeighbouringResource =
+            getFirstNeighbouringResource world lifeLoc
+    in
+    case firstNeighbouringResource of
+        Just ( location, Resource energy ) ->
+            if energy > 1 then
+                Matrix.update location (\_ -> Resource (energy - 1)) world
+                    |> Matrix.update lifeLoc incrementLifeEnergy
+            else
+                Matrix.update location (\_ -> Empty) world
+                    |> Matrix.update lifeLoc incrementLifeEnergy
+
+        Nothing ->
+            moveTowardsClosestResource world lifeLoc model.ignoreEnergyLessThan
+
+        _ ->
+            world
 
 
 
@@ -164,14 +198,18 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div [ style [ ( "text-align", "center" ), ( "padding", "2em" ) ] ]
-        [ div [ class "controls", style [ ( "margin-bottom", "2em" ) ] ] <|
+        [ div [ style [ ( "margin-bottom", "2em" ) ] ] <|
             List.concat
                 [ [ text ("Current Step: " ++ toString model.step), separator ]
                 , if model.gameOver == False then
-                    controls model
+                    playControls model
                   else
                     gameOverMessage model
                 ]
+        , div [ style [ ( "margin-bottom", "2em" ) ] ]
+            [ text "Ignore resources with energy ≤ "
+            , input [ size 1, type_ "number", value (toString model.ignoreEnergyLessThan), onInput UpdateEnergyThreshold ] []
+            ]
         , div [ class "world", gridStyle model ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
 
@@ -189,8 +227,8 @@ gridStyle model =
         ]
 
 
-controls : Model -> List (Html Msg)
-controls model =
+playControls : Model -> List (Html Msg)
+playControls model =
     [ button [ onClick NextStep, style [ ( "margin", "0 0.3em" ) ] ] [ text "Next Step" ]
     , if model.autoplay then
         button [ onClick (ToggleAutoPlay False), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay Off" ]
