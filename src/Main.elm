@@ -7,6 +7,7 @@ import Matrix exposing (Location, Matrix, loc, mapWithLocation, set, square)
 import Random exposing (Generator)
 import Tile exposing (..)
 import Time exposing (Time, millisecond)
+import World exposing (..)
 
 
 randomResourceParams : Generator ( Int, Int, Int )
@@ -36,14 +37,11 @@ main =
 
 type alias Model =
     { step : Int
+    , gameOver : Bool
     , world : World
     , autoplay : Bool
     , autoplaySpeed : Int
     }
-
-
-type alias World =
-    Matrix Tile
 
 
 worldSize =
@@ -58,6 +56,7 @@ resourceSpawnChance =
 initialModel : Model
 initialModel =
     { step = 0
+    , gameOver = False
     , autoplay = False
     , autoplaySpeed = 5
     , world =
@@ -111,8 +110,20 @@ update msg model =
             ( { model | autoplaySpeed = min 20 (model.autoplaySpeed + 1) }, Cmd.none )
 
         NextStep ->
-            { model | step = model.step + 1 }
-                |> update DoLife
+            let
+                lifeEnergy =
+                    case getLifeTile model.world of
+                        Life energy ->
+                            energy
+
+                        _ ->
+                            0
+            in
+            if lifeEnergy > 0 then
+                { model | step = model.step + 1 }
+                    |> update DoLife
+            else
+                ( { model | autoplay = False, gameOver = True }, Cmd.none )
 
         DoLife ->
             ( { model | world = processLifeTurn model.world }, Random.generate GrowResources (Random.int 1 resourceSpawnChance) )
@@ -134,184 +145,6 @@ update msg model =
             ( { model | world = Matrix.update location (increaseTileEnergy increaseAmount) model.world }, Cmd.none )
 
 
-processLifeTurn : World -> World
-processLifeTurn world =
-    let
-        lifeLoc =
-            getLifeLocation world
-
-        firstNeighbouringResource =
-            getFirstNeighbouringResource world lifeLoc
-    in
-    case firstNeighbouringResource of
-        Just ( location, Resource energy ) ->
-            if energy > 1 then
-                Matrix.update location (\_ -> Resource (energy - 1)) world
-                    |> Matrix.update lifeLoc incrementLifeEnergy
-            else
-                Matrix.update location (\_ -> Empty) world
-                    |> Matrix.update lifeLoc incrementLifeEnergy
-
-        Nothing ->
-            moveTowardsClosestResource world lifeLoc
-
-        _ ->
-            world
-
-
-getLifeLocation : World -> Location
-getLifeLocation world =
-    let
-        life =
-            getAllTilesWithLocation world
-                |> List.filter (\( _, tile ) -> isLifeTile tile)
-                |> List.head
-    in
-    case life of
-        Just ( location, _ ) ->
-            location
-
-        Nothing ->
-            Debug.crash "Couldn't find a life tile in the world!"
-
-
-getAllTilesWithLocation : World -> List ( Location, Tile )
-getAllTilesWithLocation world =
-    let
-        lastColIndex =
-            Matrix.colCount world - 1
-
-        lastRowIndex =
-            Matrix.rowCount world - 1
-
-        cols =
-            List.range 0 lastColIndex
-
-        rows =
-            List.range 0 lastRowIndex
-    in
-    List.concatMap (\col -> List.map (\row -> getTileWithLocation world row col) rows) cols
-
-
-getTileWithLocation : World -> Int -> Int -> ( Location, Tile )
-getTileWithLocation world row col =
-    let
-        location =
-            loc row col
-
-        tile =
-            Matrix.get location world
-    in
-    ( location, Maybe.withDefault Empty tile )
-
-
-moveTowardsClosestResource : World -> Location -> World
-moveTowardsClosestResource world lifeLoc =
-    let
-        closestResource =
-            getAllTilesWithLocation world
-                |> List.filter (\( _, tile ) -> isResourceTile tile)
-                |> List.sortBy (\( tileLoc, tile ) -> distanceBetweenLocations lifeLoc tileLoc)
-                |> List.head
-    in
-    case closestResource of
-        Just ( resourceLoc, Resource energy ) ->
-            let
-                _ =
-                    Debug.log "Moving towards closest resource" resourceLoc
-
-                lRow =
-                    Matrix.row lifeLoc
-
-                lCol =
-                    Matrix.col lifeLoc
-
-                rRow =
-                    Matrix.row resourceLoc
-
-                rCol =
-                    Matrix.col resourceLoc
-
-                newLifeTile =
-                    case Matrix.get lifeLoc world of
-                        Just (Life energy) ->
-                            Life (energy - 1)
-
-                        Just notLifeTile ->
-                            Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found " ++ toString notLifeTile
-
-                        Nothing ->
-                            Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found nothing. Absolutely NOTHING"
-            in
-            if lRow > rRow then
-                Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc (lRow - 1) lCol) newLifeTile
-            else if lRow < rRow then
-                Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc (lRow + 1) lCol) newLifeTile
-            else if lCol > rCol then
-                Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc lRow (lCol - 1)) newLifeTile
-            else if lCol < rCol then
-                Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc lRow (lCol + 1)) newLifeTile
-            else
-                Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
-
-        _ ->
-            Debug.log "No more resources to move to" world
-
-
-distanceBetweenLocations : Location -> Location -> Float
-distanceBetweenLocations l1 l2 =
-    let
-        r1 =
-            Matrix.row l1
-
-        c1 =
-            Matrix.col l1
-
-        r2 =
-            Matrix.row l2
-
-        c2 =
-            Matrix.col l2
-    in
-    abs <| sqrt <| toFloat <| (c1 - c2) ^ 2 + (r1 - r2) ^ 2
-
-
-getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
-getFirstNeighbouringResource world location =
-    getNeighbours world location
-        |> List.map (\( loc, mTile ) -> ( loc, Maybe.withDefault Empty mTile ))
-        |> List.filter (\( _, tile ) -> isResourceTile tile)
-        |> List.head
-        |> Debug.log "First neighbouring resource"
-
-
-getNeighbours : World -> Location -> List ( Location, Maybe Tile )
-getNeighbours world origin =
-    let
-        row =
-            Matrix.row origin
-
-        col =
-            Matrix.col origin
-
-        neighbourLocs =
-            [ ( row - 1, col - 1 )
-            , ( row - 1, col )
-            , ( row - 1, col + 1 )
-            , ( row, col - 1 )
-            , ( row, col + 1 )
-            , ( row + 1, col - 1 )
-            , ( row + 1, col )
-            , ( row + 1, col + 1 )
-            ]
-    in
-    List.map (\( x, y ) -> ( loc x y, Matrix.get ( x, y ) world )) neighbourLocs
-
-
 
 -- SUBSCRIPTIONS
 
@@ -331,25 +164,50 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div [ style [ ( "text-align", "center" ), ( "padding", "2em" ) ] ]
-        [ div
-            [ class "controls", style [ ( "margin-bottom", "2em" ) ] ]
-            [ text ("Current Step: " ++ toString model.step)
-            , separator
-            , button [ onClick NextStep, style [ ( "margin", "0 0.3em" ) ] ] [ text "Next Step" ]
-            , if model.autoplay then
-                button [ onClick (ToggleAutoPlay False), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay Off" ]
-              else
-                button [ onClick (ToggleAutoPlay True), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay On" ]
-            , separator
-            , button [ onClick DecreaseSpeed, style [ ( "margin", "0 0.3em" ) ] ] [ text "-" ]
-            , text ("Speed: " ++ toString model.autoplaySpeed)
-            , button [ onClick IncreaseSpeed, style [ ( "margin", "0 0.3em" ) ] ] [ text "+" ]
-            ]
-        , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(" ++ toString worldSize ++ ", 28px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation renderTile model.world))
+        [ div [ class "controls", style [ ( "margin-bottom", "2em" ) ] ] <|
+            List.concat
+                [ [ text ("Current Step: " ++ toString model.step), separator ]
+                , if model.gameOver == False then
+                    controls model
+                  else
+                    gameOverMessage model
+                ]
+        , div [ class "world", gridStyle model ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
 
 
-separator : Html Msg
+gridStyle : Model -> Html.Attribute Msg
+gridStyle model =
+    style
+        [ ( "display", "grid" )
+        , ( "grid-template-columns", "repeat(" ++ toString worldSize ++ ", 28px)" )
+        , ( "justify-content", "center" )
+        , if model.gameOver == True then
+            ( "opacity", "0.5" )
+          else
+            ( "opacity", "1" )
+        ]
+
+
+controls : Model -> List (Html Msg)
+controls model =
+    [ button [ onClick NextStep, style [ ( "margin", "0 0.3em" ) ] ] [ text "Next Step" ]
+    , if model.autoplay then
+        button [ onClick (ToggleAutoPlay False), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay Off" ]
+      else
+        button [ onClick (ToggleAutoPlay True), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay On" ]
+    , separator
+    , button [ onClick DecreaseSpeed, style [ ( "margin", "0 0.3em" ) ] ] [ text "-" ]
+    , text ("Speed: " ++ toString model.autoplaySpeed)
+    , button [ onClick IncreaseSpeed, style [ ( "margin", "0 0.3em" ) ] ] [ text "+" ]
+    ]
+
+
+gameOverMessage : Model -> List (Html Msg)
+gameOverMessage model =
+    [ span [ style [ ( "color", "rgba(255, 0, 0, 1)" ), ( "font-weight", "bold" ) ] ] [ text "ENERGY DEPLETED. LIFE HAS ENDED." ] ]
+
+
 separator =
     span [ style [ ( "margin", "0 0.1em" ) ] ] [ text " | " ]
 
