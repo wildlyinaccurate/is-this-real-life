@@ -60,7 +60,7 @@ incrementLifeEnergy tile =
     case tile of
         Life energy ->
             Life (energy + 1)
-                |> Debug.log "Life took some energy from a resource"
+                |> Debug.log "Took energy from a resource"
 
         _ ->
             tile |> Debug.log "Tried to increment life energy but tile was"

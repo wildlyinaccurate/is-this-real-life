@@ -1,6 +1,6 @@
 module Main exposing (..)
 
-import Html exposing (Html, button, div, program, text)
+import Html exposing (Html, button, div, program, span, text)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick)
 import Matrix exposing (Location, Matrix, loc, mapWithLocation, set, square)
@@ -38,6 +38,7 @@ type alias Model =
     { step : Int
     , world : World
     , autoplay : Bool
+    , autoplaySpeed : Int
     }
 
 
@@ -45,18 +46,23 @@ type alias World =
     Matrix Tile
 
 
-worldSize : Int
 worldSize =
     24
+
+
+resourceSpawnChance =
+    -- Lower number is a higher chance
+    60
 
 
 initialModel : Model
 initialModel =
     { step = 0
     , autoplay = False
+    , autoplaySpeed = 5
     , world =
         square worldSize (\_ -> Empty)
-            |> set (loc 11 11) (Life 10)
+            |> set (loc 11 11) (Life 20)
             |> set (loc 2 14) (Resource 2)
             |> set (loc 3 22) (Resource 6)
             |> set (loc 5 6) (Resource 5)
@@ -82,6 +88,8 @@ type Msg
     = NextStep
     | Tick Time
     | ToggleAutoPlay Bool
+    | DecreaseSpeed
+    | IncreaseSpeed
     | DoLife
     | GrowResources Int
     | SpawnRandomResource ( Int, Int, Int )
@@ -96,12 +104,18 @@ update msg model =
         ToggleAutoPlay b ->
             ( { model | autoplay = b }, Cmd.none )
 
+        DecreaseSpeed ->
+            ( { model | autoplaySpeed = max 1 (model.autoplaySpeed - 1) }, Cmd.none )
+
+        IncreaseSpeed ->
+            ( { model | autoplaySpeed = min 20 (model.autoplaySpeed + 1) }, Cmd.none )
+
         NextStep ->
             { model | step = model.step + 1 }
                 |> update DoLife
 
         DoLife ->
-            ( { model | world = processLifeTurn model.world }, Random.generate GrowResources (Random.int 1 50) )
+            ( { model | world = processLifeTurn model.world }, Random.generate GrowResources (Random.int 1 resourceSpawnChance) )
 
         GrowResources x ->
             if x <= 5 then
@@ -197,16 +211,14 @@ moveTowardsClosestResource world lifeLoc =
         closestResource =
             getAllTilesWithLocation world
                 |> List.filter (\( _, tile ) -> isResourceTile tile)
-                |> List.sortBy (\( _, tile ) -> tileEnergy tile)
-                |> List.reverse
-                -- TODO: Sort by distance to life location (currently sorting by energy)
+                |> List.sortBy (\( tileLoc, tile ) -> distanceBetweenLocations lifeLoc tileLoc)
                 |> List.head
     in
     case closestResource of
         Just ( resourceLoc, Resource energy ) ->
             let
                 _ =
-                    Debug.log "Expending energy to move towards" resourceLoc
+                    Debug.log "Moving towards closest resource" resourceLoc
 
                 lRow =
                     Matrix.row lifeLoc
@@ -250,6 +262,24 @@ moveTowardsClosestResource world lifeLoc =
             Debug.log "No more resources to move to" world
 
 
+distanceBetweenLocations : Location -> Location -> Float
+distanceBetweenLocations l1 l2 =
+    let
+        r1 =
+            Matrix.row l1
+
+        c1 =
+            Matrix.col l1
+
+        r2 =
+            Matrix.row l2
+
+        c2 =
+            Matrix.col l2
+    in
+    abs <| sqrt <| toFloat <| (c1 - c2) ^ 2 + (r1 - r2) ^ 2
+
+
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringResource world location =
     getNeighbours world location
@@ -289,7 +319,7 @@ getNeighbours world origin =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     if model.autoplay == True then
-        Time.every (millisecond * 200) Tick
+        Time.every (millisecond * 1000 / toFloat model.autoplaySpeed) Tick
     else
         Sub.none
 
@@ -303,15 +333,25 @@ view model =
     div [ style [ ( "text-align", "center" ), ( "padding", "2em" ) ] ]
         [ div
             [ class "controls", style [ ( "margin-bottom", "2em" ) ] ]
-            [ text ("Current Step: " ++ toString model.step ++ " | ")
-            , button [ onClick NextStep ] [ text "Next Step" ]
+            [ text ("Current Step: " ++ toString model.step)
+            , separator
+            , button [ onClick NextStep, style [ ( "margin", "0 0.3em" ) ] ] [ text "Next Step" ]
             , if model.autoplay then
-                button [ onClick (ToggleAutoPlay False) ] [ text "Turn Autoplay Off" ]
+                button [ onClick (ToggleAutoPlay False), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay Off" ]
               else
-                button [ onClick (ToggleAutoPlay True) ] [ text "Turn Autoplay On" ]
+                button [ onClick (ToggleAutoPlay True), style [ ( "margin", "0 0.3em" ) ] ] [ text "Turn Autoplay On" ]
+            , separator
+            , button [ onClick DecreaseSpeed, style [ ( "margin", "0 0.3em" ) ] ] [ text "-" ]
+            , text ("Speed: " ++ toString model.autoplaySpeed)
+            , button [ onClick IncreaseSpeed, style [ ( "margin", "0 0.3em" ) ] ] [ text "+" ]
             ]
         , div [ class "world", style [ ( "display", "grid" ), ( "grid-template-columns", "repeat(" ++ toString worldSize ++ ", 28px)" ), ( "justify-content", "center" ) ] ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
+
+
+separator : Html Msg
+separator =
+    span [ style [ ( "margin", "0 0.1em" ) ] ] [ text " | " ]
 
 
 renderTile : Location -> Tile -> Html Msg
