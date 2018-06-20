@@ -9324,71 +9324,75 @@ var _wildlyinaccurate$is_this_real_life$World$getAllTilesWithLocation = function
 		},
 		cols);
 };
-var _wildlyinaccurate$is_this_real_life$World$moveTowardsClosestResource = F2(
-	function (world, lifeLoc) {
-		var closestResource = _elm_lang$core$List$head(
-			A2(
-				_elm_lang$core$List$sortBy,
-				function (_p8) {
-					var _p9 = _p8;
-					return A2(_wildlyinaccurate$is_this_real_life$World$distanceBetweenLocations, lifeLoc, _p9._0);
-				},
-				A2(
-					_elm_lang$core$List$filter,
-					function (_p10) {
-						var _p11 = _p10;
-						return _wildlyinaccurate$is_this_real_life$Tile$isResourceTile(_p11._1);
-					},
-					_wildlyinaccurate$is_this_real_life$World$getAllTilesWithLocation(world))));
-		var _p12 = closestResource;
-		if (((_p12.ctor === 'Just') && (_p12._0.ctor === '_Tuple2')) && (_p12._0._1.ctor === 'Resource')) {
-			var _p17 = _p12._0._0;
-			var newLifeTile = function () {
-				var _p13 = A2(_chendrix$elm_matrix$Matrix$get, lifeLoc, world);
-				if (_p13.ctor === 'Just') {
-					if (_p13._0.ctor === 'Life') {
-						return _wildlyinaccurate$is_this_real_life$Tile$Life(_p13._0._0 - 1);
-					} else {
-						return _elm_lang$core$Native_Utils.crashCase(
-							'World',
-							{
-								start: {line: 128, column: 21},
-								end: {line: 136, column: 140}
-							},
-							_p13)(
-							A2(
-								_elm_lang$core$Basics_ops['++'],
-								'Expected to find life at tile ',
-								A2(
-									_elm_lang$core$Basics_ops['++'],
-									_elm_lang$core$Basics$toString(lifeLoc),
-									A2(
-										_elm_lang$core$Basics_ops['++'],
-										' but found ',
-										_elm_lang$core$Basics$toString(_p13._0)))));
-					}
+var _wildlyinaccurate$is_this_real_life$World$moveTowardsClosestResource = F3(
+	function (world, lifeLoc, ignoreEnergyLessThan) {
+		var lifeEnergy = function () {
+			var _p8 = A2(_chendrix$elm_matrix$Matrix$get, lifeLoc, world);
+			if (_p8.ctor === 'Just') {
+				if (_p8._0.ctor === 'Life') {
+					return _p8._0._0;
 				} else {
 					return _elm_lang$core$Native_Utils.crashCase(
 						'World',
 						{
-							start: {line: 128, column: 21},
-							end: {line: 136, column: 140}
+							start: {line: 85, column: 13},
+							end: {line: 93, column: 132}
 						},
-						_p13)(
+						_p8)(
 						A2(
 							_elm_lang$core$Basics_ops['++'],
 							'Expected to find life at tile ',
 							A2(
 								_elm_lang$core$Basics_ops['++'],
 								_elm_lang$core$Basics$toString(lifeLoc),
-								' but found nothing. Absolutely NOTHING')));
+								A2(
+									_elm_lang$core$Basics_ops['++'],
+									' but found ',
+									_elm_lang$core$Basics$toString(_p8._0)))));
 				}
-			}();
-			var rCol = _chendrix$elm_matrix$Matrix$col(_p17);
-			var rRow = _chendrix$elm_matrix$Matrix$row(_p17);
+			} else {
+				return _elm_lang$core$Native_Utils.crashCase(
+					'World',
+					{
+						start: {line: 85, column: 13},
+						end: {line: 93, column: 132}
+					},
+					_p8)(
+					A2(
+						_elm_lang$core$Basics_ops['++'],
+						'Expected to find life at tile ',
+						A2(
+							_elm_lang$core$Basics_ops['++'],
+							_elm_lang$core$Basics$toString(lifeLoc),
+							' but found nothing. Absolutely NOTHING')));
+			}
+		}();
+		var closestResource = _elm_lang$core$List$head(
+			A2(
+				_elm_lang$core$List$sortBy,
+				function (_p11) {
+					var _p12 = _p11;
+					return A2(_wildlyinaccurate$is_this_real_life$World$distanceBetweenLocations, lifeLoc, _p12._0);
+				},
+				A2(
+					_elm_lang$core$List$filter,
+					function (_p13) {
+						var _p14 = _p13;
+						var _p15 = _p14._1;
+						return _wildlyinaccurate$is_this_real_life$Tile$isResourceTile(_p15) && (_elm_lang$core$Native_Utils.cmp(
+							_wildlyinaccurate$is_this_real_life$Tile$tileEnergy(_p15),
+							ignoreEnergyLessThan) > 0);
+					},
+					_wildlyinaccurate$is_this_real_life$World$getAllTilesWithLocation(world))));
+		var _p16 = closestResource;
+		if (((_p16.ctor === 'Just') && (_p16._0.ctor === '_Tuple2')) && (_p16._0._1.ctor === 'Resource')) {
+			var _p18 = _p16._0._0;
+			var newLifeTile = _wildlyinaccurate$is_this_real_life$Tile$Life(lifeEnergy - 1);
+			var rCol = _chendrix$elm_matrix$Matrix$col(_p18);
+			var rRow = _chendrix$elm_matrix$Matrix$row(_p18);
 			var lCol = _chendrix$elm_matrix$Matrix$col(lifeLoc);
 			var lRow = _chendrix$elm_matrix$Matrix$row(lifeLoc);
-			var _p16 = A2(_elm_lang$core$Debug$log, 'Moving towards closest resource', _p17);
+			var _p17 = A2(_elm_lang$core$Debug$log, 'Moving towards closest resource', _p18);
 			return (_elm_lang$core$Native_Utils.cmp(lRow, rRow) > 0) ? A3(
 				_chendrix$elm_matrix$Matrix$set,
 				A2(_chendrix$elm_matrix$Matrix$loc, lRow - 1, lCol),
@@ -9408,80 +9412,51 @@ var _wildlyinaccurate$is_this_real_life$World$moveTowardsClosestResource = F2(
 				A3(_chendrix$elm_matrix$Matrix$set, lifeLoc, _wildlyinaccurate$is_this_real_life$Tile$Empty, world)) : _elm_lang$core$Native_Utils.crash(
 				'World',
 				{
-					start: {line: 151, column: 17},
-					end: {line: 151, column: 28}
+					start: {line: 129, column: 17},
+					end: {line: 129, column: 28}
 				})('Trying to move life tile towards a resource but it\'s already right next to it?!'))));
 		} else {
-			return A2(_elm_lang$core$Debug$log, 'No more resources to move to', world);
+			return A2(
+				_elm_lang$core$Debug$log,
+				'No more resources to move to. Staying put.',
+				A3(
+					_chendrix$elm_matrix$Matrix$set,
+					lifeLoc,
+					_wildlyinaccurate$is_this_real_life$Tile$Life(lifeEnergy - 1),
+					world));
 		}
 	});
 var _wildlyinaccurate$is_this_real_life$World$getLifeTileWithLocation = function (world) {
 	var life = _elm_lang$core$List$head(
 		A2(
 			_elm_lang$core$List$filter,
-			function (_p18) {
-				var _p19 = _p18;
-				return _wildlyinaccurate$is_this_real_life$Tile$isLifeTile(_p19._1);
+			function (_p19) {
+				var _p20 = _p19;
+				return _wildlyinaccurate$is_this_real_life$Tile$isLifeTile(_p20._1);
 			},
 			_wildlyinaccurate$is_this_real_life$World$getAllTilesWithLocation(world)));
-	var _p20 = life;
-	if (_p20.ctor === 'Just') {
-		return _p20._0;
+	var _p21 = life;
+	if (_p21.ctor === 'Just') {
+		return _p21._0;
 	} else {
 		return _elm_lang$core$Native_Utils.crashCase(
 			'World',
 			{
-				start: {line: 44, column: 5},
-				end: {line: 49, column: 66}
+				start: {line: 19, column: 5},
+				end: {line: 24, column: 66}
 			},
-			_p20)('Couldn\'t find a life tile in the world!');
+			_p21)('Couldn\'t find a life tile in the world!');
 	}
 };
 var _wildlyinaccurate$is_this_real_life$World$getLifeLocation = function (world) {
-	var _p22 = _wildlyinaccurate$is_this_real_life$World$getLifeTileWithLocation(world);
-	var loc = _p22._0;
+	var _p23 = _wildlyinaccurate$is_this_real_life$World$getLifeTileWithLocation(world);
+	var loc = _p23._0;
 	return loc;
 };
 var _wildlyinaccurate$is_this_real_life$World$getLifeTile = function (world) {
-	var _p23 = _wildlyinaccurate$is_this_real_life$World$getLifeTileWithLocation(world);
-	var life = _p23._1;
+	var _p24 = _wildlyinaccurate$is_this_real_life$World$getLifeTileWithLocation(world);
+	var life = _p24._1;
 	return life;
-};
-var _wildlyinaccurate$is_this_real_life$World$processLifeTurn = function (world) {
-	var lifeLoc = _wildlyinaccurate$is_this_real_life$World$getLifeLocation(world);
-	var firstNeighbouringResource = A2(_wildlyinaccurate$is_this_real_life$World$getFirstNeighbouringResource, world, lifeLoc);
-	var _p24 = firstNeighbouringResource;
-	if (_p24.ctor === 'Just') {
-		if ((_p24._0.ctor === '_Tuple2') && (_p24._0._1.ctor === 'Resource')) {
-			var _p28 = _p24._0._0;
-			var _p27 = _p24._0._1._0;
-			return (_elm_lang$core$Native_Utils.cmp(_p27, 1) > 0) ? A3(
-				_chendrix$elm_matrix$Matrix$update,
-				lifeLoc,
-				_wildlyinaccurate$is_this_real_life$Tile$incrementLifeEnergy,
-				A3(
-					_chendrix$elm_matrix$Matrix$update,
-					_p28,
-					function (_p25) {
-						return _wildlyinaccurate$is_this_real_life$Tile$Resource(_p27 - 1);
-					},
-					world)) : A3(
-				_chendrix$elm_matrix$Matrix$update,
-				lifeLoc,
-				_wildlyinaccurate$is_this_real_life$Tile$incrementLifeEnergy,
-				A3(
-					_chendrix$elm_matrix$Matrix$update,
-					_p28,
-					function (_p26) {
-						return _wildlyinaccurate$is_this_real_life$Tile$Empty;
-					},
-					world));
-		} else {
-			return world;
-		}
-	} else {
-		return A2(_wildlyinaccurate$is_this_real_life$World$moveTowardsClosestResource, world, lifeLoc);
-	}
 };
 var _wildlyinaccurate$is_this_real_life$Main$tileStyle = {
 	ctor: '::',
@@ -9620,6 +9595,43 @@ var _wildlyinaccurate$is_this_real_life$Main$gameOverMessage = function (model) 
 		_1: {ctor: '[]'}
 	};
 };
+var _wildlyinaccurate$is_this_real_life$Main$processLifeTurn = function (model) {
+	var world = model.world;
+	var lifeLoc = _wildlyinaccurate$is_this_real_life$World$getLifeLocation(world);
+	var firstNeighbouringResource = A2(_wildlyinaccurate$is_this_real_life$World$getFirstNeighbouringResource, world, lifeLoc);
+	var _p2 = firstNeighbouringResource;
+	if (_p2.ctor === 'Just') {
+		if ((_p2._0.ctor === '_Tuple2') && (_p2._0._1.ctor === 'Resource')) {
+			var _p6 = _p2._0._0;
+			var _p5 = _p2._0._1._0;
+			return (_elm_lang$core$Native_Utils.cmp(_p5, 1) > 0) ? A3(
+				_chendrix$elm_matrix$Matrix$update,
+				lifeLoc,
+				_wildlyinaccurate$is_this_real_life$Tile$incrementLifeEnergy,
+				A3(
+					_chendrix$elm_matrix$Matrix$update,
+					_p6,
+					function (_p3) {
+						return _wildlyinaccurate$is_this_real_life$Tile$Resource(_p5 - 1);
+					},
+					world)) : A3(
+				_chendrix$elm_matrix$Matrix$update,
+				lifeLoc,
+				_wildlyinaccurate$is_this_real_life$Tile$incrementLifeEnergy,
+				A3(
+					_chendrix$elm_matrix$Matrix$update,
+					_p6,
+					function (_p4) {
+						return _wildlyinaccurate$is_this_real_life$Tile$Empty;
+					},
+					world));
+		} else {
+			return world;
+		}
+	} else {
+		return A3(_wildlyinaccurate$is_this_real_life$World$moveTowardsClosestResource, world, lifeLoc, model.ignoreEnergyLessThan);
+	}
+};
 var _wildlyinaccurate$is_this_real_life$Main$resourceSpawnChance = 60;
 var _wildlyinaccurate$is_this_real_life$Main$worldSize = 24;
 var _wildlyinaccurate$is_this_real_life$Main$initialModel = {
@@ -9627,6 +9639,7 @@ var _wildlyinaccurate$is_this_real_life$Main$initialModel = {
 	gameOver: false,
 	autoplay: false,
 	autoplaySpeed: 5,
+	ignoreEnergyLessThan: 1,
 	world: A3(
 		_chendrix$elm_matrix$Matrix$set,
 		A2(_chendrix$elm_matrix$Matrix$loc, 23, 17),
@@ -9670,7 +9683,7 @@ var _wildlyinaccurate$is_this_real_life$Main$initialModel = {
 											A2(
 												_chendrix$elm_matrix$Matrix$square,
 												_wildlyinaccurate$is_this_real_life$Main$worldSize,
-												function (_p2) {
+												function (_p7) {
 													return _wildlyinaccurate$is_this_real_life$Tile$Empty;
 												})))))))))))
 };
@@ -9718,9 +9731,9 @@ var _wildlyinaccurate$is_this_real_life$Main$randomResourceParams = function () 
 		A2(_elm_lang$core$Random$int, 0, max),
 		A2(_elm_lang$core$Random$int, 1, 10));
 }();
-var _wildlyinaccurate$is_this_real_life$Main$Model = F5(
-	function (a, b, c, d, e) {
-		return {step: a, gameOver: b, world: c, autoplay: d, autoplaySpeed: e};
+var _wildlyinaccurate$is_this_real_life$Main$Model = F6(
+	function (a, b, c, d, e, f) {
+		return {step: a, gameOver: b, world: c, autoplay: d, autoplaySpeed: e, ignoreEnergyLessThan: f};
 	});
 var _wildlyinaccurate$is_this_real_life$Main$SpawnRandomResource = function (a) {
 	return {ctor: 'SpawnRandomResource', _0: a};
@@ -9729,6 +9742,9 @@ var _wildlyinaccurate$is_this_real_life$Main$GrowResources = function (a) {
 	return {ctor: 'GrowResources', _0: a};
 };
 var _wildlyinaccurate$is_this_real_life$Main$DoLife = {ctor: 'DoLife'};
+var _wildlyinaccurate$is_this_real_life$Main$UpdateEnergyThreshold = function (a) {
+	return {ctor: 'UpdateEnergyThreshold', _0: a};
+};
 var _wildlyinaccurate$is_this_real_life$Main$IncreaseSpeed = {ctor: 'IncreaseSpeed'};
 var _wildlyinaccurate$is_this_real_life$Main$DecreaseSpeed = {ctor: 'DecreaseSpeed'};
 var _wildlyinaccurate$is_this_real_life$Main$ToggleAutoPlay = function (a) {
@@ -9748,20 +9764,20 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 	function (msg, model) {
 		update:
 		while (true) {
-			var _p3 = msg;
-			switch (_p3.ctor) {
+			var _p8 = msg;
+			switch (_p8.ctor) {
 				case 'Tick':
-					var _v2 = _wildlyinaccurate$is_this_real_life$Main$NextStep,
-						_v3 = model;
-					msg = _v2;
-					model = _v3;
+					var _v3 = _wildlyinaccurate$is_this_real_life$Main$NextStep,
+						_v4 = model;
+					msg = _v3;
+					model = _v4;
 					continue update;
 				case 'ToggleAutoPlay':
 					return {
 						ctor: '_Tuple2',
 						_0: _elm_lang$core$Native_Utils.update(
 							model,
-							{autoplay: _p3._0}),
+							{autoplay: _p8._0}),
 						_1: _elm_lang$core$Platform_Cmd$none
 					};
 				case 'DecreaseSpeed':
@@ -9784,22 +9800,35 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 							}),
 						_1: _elm_lang$core$Platform_Cmd$none
 					};
+				case 'UpdateEnergyThreshold':
+					return {
+						ctor: '_Tuple2',
+						_0: _elm_lang$core$Native_Utils.update(
+							model,
+							{
+								ignoreEnergyLessThan: A2(
+									_elm_lang$core$Result$withDefault,
+									0,
+									_elm_lang$core$String$toInt(_p8._0))
+							}),
+						_1: _elm_lang$core$Platform_Cmd$none
+					};
 				case 'NextStep':
 					var lifeEnergy = function () {
-						var _p4 = _wildlyinaccurate$is_this_real_life$World$getLifeTile(model.world);
-						if (_p4.ctor === 'Life') {
-							return _p4._0;
+						var _p9 = _wildlyinaccurate$is_this_real_life$World$getLifeTile(model.world);
+						if (_p9.ctor === 'Life') {
+							return _p9._0;
 						} else {
 							return 0;
 						}
 					}();
 					if (_elm_lang$core$Native_Utils.cmp(lifeEnergy, 0) > 0) {
-						var _v5 = _wildlyinaccurate$is_this_real_life$Main$DoLife,
-							_v6 = _elm_lang$core$Native_Utils.update(
+						var _v6 = _wildlyinaccurate$is_this_real_life$Main$DoLife,
+							_v7 = _elm_lang$core$Native_Utils.update(
 							model,
 							{step: model.step + 1});
-						msg = _v5;
-						model = _v6;
+						msg = _v6;
+						model = _v7;
 						continue update;
 					} else {
 						return {
@@ -9816,7 +9845,7 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 						_0: _elm_lang$core$Native_Utils.update(
 							model,
 							{
-								world: _wildlyinaccurate$is_this_real_life$World$processLifeTurn(model.world)
+								world: _wildlyinaccurate$is_this_real_life$Main$processLifeTurn(model)
 							}),
 						_1: A2(
 							_elm_lang$core$Random$generate,
@@ -9824,14 +9853,14 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 							A2(_elm_lang$core$Random$int, 1, _wildlyinaccurate$is_this_real_life$Main$resourceSpawnChance))
 					};
 				case 'GrowResources':
-					var _p5 = _p3._0;
-					return (_elm_lang$core$Native_Utils.cmp(_p5, 5) < 1) ? {
+					var _p10 = _p8._0;
+					return (_elm_lang$core$Native_Utils.cmp(_p10, 5) < 1) ? {
 						ctor: '_Tuple2',
 						_0: model,
 						_1: A2(_elm_lang$core$Random$generate, _wildlyinaccurate$is_this_real_life$Main$SpawnRandomResource, _wildlyinaccurate$is_this_real_life$Main$randomResourceParams)
-					} : ((_elm_lang$core$Native_Utils.cmp(_p5, 10) < 1) ? {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none} : {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none});
+					} : ((_elm_lang$core$Native_Utils.cmp(_p10, 10) < 1) ? {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none} : {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none});
 				default:
-					var _p6 = _p3._0._2;
+					var _p11 = _p8._0._2;
 					var location = A2(
 						_elm_lang$core$Debug$log,
 						A2(
@@ -9839,9 +9868,9 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 							'Sprinkling ',
 							A2(
 								_elm_lang$core$Basics_ops['++'],
-								_elm_lang$core$Basics$toString(_p6),
+								_elm_lang$core$Basics$toString(_p11),
 								' energy at')),
-						A2(_chendrix$elm_matrix$Matrix$loc, _p3._0._0, _p3._0._1));
+						A2(_chendrix$elm_matrix$Matrix$loc, _p8._0._0, _p8._0._1));
 					return {
 						ctor: '_Tuple2',
 						_0: _elm_lang$core$Native_Utils.update(
@@ -9850,7 +9879,7 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 								world: A3(
 									_chendrix$elm_matrix$Matrix$update,
 									location,
-									_wildlyinaccurate$is_this_real_life$Tile$increaseTileEnergy(_p6),
+									_wildlyinaccurate$is_this_real_life$Tile$increaseTileEnergy(_p11),
 									model.world)
 							}),
 						_1: _elm_lang$core$Platform_Cmd$none
@@ -9858,7 +9887,7 @@ var _wildlyinaccurate$is_this_real_life$Main$update = F2(
 			}
 		}
 	});
-var _wildlyinaccurate$is_this_real_life$Main$controls = function (model) {
+var _wildlyinaccurate$is_this_real_life$Main$playControls = function (model) {
 	return {
 		ctor: '::',
 		_0: A2(
@@ -10014,17 +10043,13 @@ var _wildlyinaccurate$is_this_real_life$Main$view = function (model) {
 				_elm_lang$html$Html$div,
 				{
 					ctor: '::',
-					_0: _elm_lang$html$Html_Attributes$class('controls'),
-					_1: {
-						ctor: '::',
-						_0: _elm_lang$html$Html_Attributes$style(
-							{
-								ctor: '::',
-								_0: {ctor: '_Tuple2', _0: 'margin-bottom', _1: '2em'},
-								_1: {ctor: '[]'}
-							}),
-						_1: {ctor: '[]'}
-					}
+					_0: _elm_lang$html$Html_Attributes$style(
+						{
+							ctor: '::',
+							_0: {ctor: '_Tuple2', _0: 'margin-bottom', _1: '2em'},
+							_1: {ctor: '[]'}
+						}),
+					_1: {ctor: '[]'}
 				},
 				_elm_lang$core$List$concat(
 					{
@@ -10044,7 +10069,7 @@ var _wildlyinaccurate$is_this_real_life$Main$view = function (model) {
 						},
 						_1: {
 							ctor: '::',
-							_0: _elm_lang$core$Native_Utils.eq(model.gameOver, false) ? _wildlyinaccurate$is_this_real_life$Main$controls(model) : _wildlyinaccurate$is_this_real_life$Main$gameOverMessage(model),
+							_0: _elm_lang$core$Native_Utils.eq(model.gameOver, false) ? _wildlyinaccurate$is_this_real_life$Main$playControls(model) : _wildlyinaccurate$is_this_real_life$Main$gameOverMessage(model),
 							_1: {ctor: '[]'}
 						}
 					})),
@@ -10054,16 +10079,60 @@ var _wildlyinaccurate$is_this_real_life$Main$view = function (model) {
 					_elm_lang$html$Html$div,
 					{
 						ctor: '::',
-						_0: _elm_lang$html$Html_Attributes$class('world'),
+						_0: _elm_lang$html$Html_Attributes$style(
+							{
+								ctor: '::',
+								_0: {ctor: '_Tuple2', _0: 'margin-bottom', _1: '2em'},
+								_1: {ctor: '[]'}
+							}),
+						_1: {ctor: '[]'}
+					},
+					{
+						ctor: '::',
+						_0: _elm_lang$html$Html$text('Ignore resources with energy ≤ '),
 						_1: {
 							ctor: '::',
-							_0: _wildlyinaccurate$is_this_real_life$Main$gridStyle(model),
+							_0: A2(
+								_elm_lang$html$Html$input,
+								{
+									ctor: '::',
+									_0: _elm_lang$html$Html_Attributes$size(1),
+									_1: {
+										ctor: '::',
+										_0: _elm_lang$html$Html_Attributes$type_('number'),
+										_1: {
+											ctor: '::',
+											_0: _elm_lang$html$Html_Attributes$value(
+												_elm_lang$core$Basics$toString(model.ignoreEnergyLessThan)),
+											_1: {
+												ctor: '::',
+												_0: _elm_lang$html$Html_Events$onInput(_wildlyinaccurate$is_this_real_life$Main$UpdateEnergyThreshold),
+												_1: {ctor: '[]'}
+											}
+										}
+									}
+								},
+								{ctor: '[]'}),
 							_1: {ctor: '[]'}
 						}
-					},
-					_chendrix$elm_matrix$Matrix$flatten(
-						A2(_chendrix$elm_matrix$Matrix$mapWithLocation, _wildlyinaccurate$is_this_real_life$Main$renderTile, model.world))),
-				_1: {ctor: '[]'}
+					}),
+				_1: {
+					ctor: '::',
+					_0: A2(
+						_elm_lang$html$Html$div,
+						{
+							ctor: '::',
+							_0: _elm_lang$html$Html_Attributes$class('world'),
+							_1: {
+								ctor: '::',
+								_0: _wildlyinaccurate$is_this_real_life$Main$gridStyle(model),
+								_1: {ctor: '[]'}
+							}
+						},
+						_chendrix$elm_matrix$Matrix$flatten(
+							A2(_chendrix$elm_matrix$Matrix$mapWithLocation, _wildlyinaccurate$is_this_real_life$Main$renderTile, model.world))),
+					_1: {ctor: '[]'}
+				}
 			}
 		});
 };
