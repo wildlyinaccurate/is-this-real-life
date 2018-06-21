@@ -41,7 +41,6 @@ type alias Model =
     , world : World
     , autoplay : Bool
     , autoplaySpeed : Int
-    , ignoreEnergyLessThan : Int
     }
 
 
@@ -60,7 +59,6 @@ initialModel =
     , gameOver = False
     , autoplay = False
     , autoplaySpeed = 5
-    , ignoreEnergyLessThan = 1
     , world =
         square worldSize (\_ -> Empty)
             |> set (loc 11 11) (Life 20)
@@ -91,7 +89,6 @@ type Msg
     | ToggleAutoPlay Bool
     | DecreaseSpeed
     | IncreaseSpeed
-    | UpdateEnergyThreshold String
     | DoLife
     | GrowResources Int
     | SpawnRandomResource ( Int, Int, Int )
@@ -111,9 +108,6 @@ update msg model =
 
         IncreaseSpeed ->
             ( { model | autoplaySpeed = min 20 (model.autoplaySpeed + 1) }, Cmd.none )
-
-        UpdateEnergyThreshold value ->
-            ( { model | ignoreEnergyLessThan = Result.withDefault 0 (String.toInt value) }, Cmd.none )
 
         NextStep ->
             let
@@ -173,7 +167,7 @@ processLifeTurn model =
                     |> Matrix.update lifeLoc incrementLifeEnergy
 
         Nothing ->
-            moveTowardsClosestResource world lifeLoc model.ignoreEnergyLessThan
+            moveTowardsBestResource world lifeLoc
 
         _ ->
             world
@@ -206,10 +200,6 @@ view model =
                   else
                     gameOverMessage model
                 ]
-        , div [ style [ ( "margin-bottom", "2em" ) ] ]
-            [ text "Ignore resources with energy ≤ "
-            , input [ size 1, type_ "number", value (toString model.ignoreEnergyLessThan), onInput UpdateEnergyThreshold ] []
-            ]
         , div [ class "world", gridStyle model ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
 

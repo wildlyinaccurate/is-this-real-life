@@ -72,13 +72,14 @@ getTileWithLocation world row col =
     ( location, Maybe.withDefault Empty tile )
 
 
-moveTowardsClosestResource : World -> Location -> Int -> World
-moveTowardsClosestResource world lifeLoc ignoreEnergyLessThan =
+moveTowardsBestResource : World -> Location -> World
+moveTowardsBestResource world lifeLoc =
     let
         closestResource =
             getAllTilesWithLocation world
-                |> List.filter (\( _, tile ) -> isResourceTile tile && tileEnergy tile > ignoreEnergyLessThan)
-                |> List.sortBy (\( tileLoc, tile ) -> distanceBetweenLocations lifeLoc tileLoc)
+                |> List.filter (\( _, tile ) -> isResourceTile tile)
+                |> List.sortBy (\( tileLoc, tile ) -> relativeTileValue lifeLoc tileLoc tile)
+                |> List.reverse
                 |> List.head
 
         lifeEnergy =
@@ -131,6 +132,18 @@ moveTowardsClosestResource world lifeLoc ignoreEnergyLessThan =
         _ ->
             Matrix.set lifeLoc (Life (lifeEnergy - 1)) world
                 |> Debug.log "No more resources to move to. Staying put."
+
+
+relativeTileValue : Location -> Location -> Tile -> Float
+relativeTileValue origin tileLoc tile =
+    let
+        distance =
+            distanceBetweenLocations origin tileLoc
+
+        energy =
+            tileEnergy tile
+    in
+    toFloat energy - distance
 
 
 distanceBetweenLocations : Location -> Location -> Float
