@@ -1,6 +1,6 @@
 # Is this real life?
 
-Or just a simulation?
+Or just a simulation? [Find out for yourself](https://wildlyinaccurate.com/is-this-real-life/).
 
 ## Develop
 
