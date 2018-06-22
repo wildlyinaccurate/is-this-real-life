@@ -1,0 +1,7 @@
+{
+    "checks": {
+        "DebugCrash": false,
+        "DebugLog": false,
+        "ExposeAll": false
+    }
+}
