@@ -43,7 +43,7 @@ isResourceTile tile =
 increaseTileEnergy : Int -> Tile -> Tile
 increaseTileEnergy amount tile =
     case tile of
-        Life energy ->
+        Life _ ->
             tile
                 |> Debug.log "Life was blessed with random energy but the world is cruel coveted the energy for itself"
 

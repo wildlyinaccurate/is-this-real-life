@@ -1,13 +1,13 @@
 module Main exposing (..)
 
-import Html exposing (Html, button, div, input, program, span, text)
-import Html.Attributes exposing (class, size, style, type_, value)
-import Html.Events exposing (onClick, onInput)
-import Matrix exposing (Location, Matrix, loc, mapWithLocation, set, square)
+import Html exposing (Html, button, div, span, text)
+import Html.Attributes exposing (class, style)
+import Html.Events exposing (onClick)
+import Matrix exposing (Location, loc, mapWithLocation, set, square)
 import Random exposing (Generator)
-import Tile exposing (..)
+import Tile exposing (Tile(..), increaseTileEnergy, incrementLifeEnergy, tileEnergy)
 import Time exposing (Time, millisecond)
-import World exposing (..)
+import World exposing (World, getFirstNeighbouringResource, getLifeTiles, moveTowardsBestResource)
 
 
 randomResourceParams : Generator ( Int, Int, Int )
@@ -22,6 +22,7 @@ randomResourceParams =
     Random.map3 makeTriple (Random.int 0 max) (Random.int 0 max) (Random.int 1 10)
 
 
+main : Program Never Model Msg
 main =
     Html.program
         { init = init
@@ -44,13 +45,19 @@ type alias Model =
     }
 
 
+worldSize : Int
 worldSize =
     24
 
 
-resourceSpawnChance =
-    -- Lower number is a higher chance
-    60
+randomEventChance : Int
+randomEventChance =
+    worldSize * 3
+
+
+randomResourceChance : Int
+randomResourceChance =
+    6
 
 
 initialModel : Model
@@ -89,8 +96,7 @@ type Msg
     | ToggleAutoPlay Bool
     | DecreaseSpeed
     | IncreaseSpeed
-    | DoLife
-    | GrowResources Int
+    | RandomEvent Int
     | SpawnRandomResource ( Int, Int, Int )
 
 
@@ -111,29 +117,19 @@ update msg model =
 
         NextStep ->
             let
-                lifeEnergy =
-                    case getLifeTile model.world of
-                        Life energy ->
-                            energy
-
-                        _ ->
-                            0
+                allLifeEnergy =
+                    getLifeTiles model.world
+                        |> List.map (\( _, tile ) -> tileEnergy tile)
+                        |> List.sum
             in
-            if lifeEnergy > 0 then
-                { model | step = model.step + 1 }
-                    |> update DoLife
-            else
+            if allLifeEnergy == 0 then
                 ( { model | autoplay = False, gameOver = True }, Cmd.none )
+            else
+                ( { model | step = model.step + 1, world = updateWorld model.world }, Random.generate RandomEvent (Random.int 1 randomEventChance) )
 
-        DoLife ->
-            ( { model | world = processLifeTurn model }, Random.generate GrowResources (Random.int 1 resourceSpawnChance) )
-
-        GrowResources x ->
-            if x <= 5 then
+        RandomEvent x ->
+            if x <= randomResourceChance then
                 ( model, Random.generate SpawnRandomResource randomResourceParams )
-            else if x <= 10 then
-                -- TODO: Increase energy of random resource
-                ( model, Cmd.none )
             else
                 ( model, Cmd.none )
 
@@ -145,15 +141,39 @@ update msg model =
             ( { model | world = Matrix.update location (increaseTileEnergy increaseAmount) model.world }, Cmd.none )
 
 
-processLifeTurn : Model -> World
-processLifeTurn model =
+updateWorld : World -> World
+updateWorld world =
+    updateResourceTiles world
+        |> processLifeTiles
+
+
+updateResourceTiles : World -> World
+updateResourceTiles world =
+    Matrix.mapWithLocation (updateResourceTile world) world
+
+
+updateResourceTile : World -> Location -> Tile -> Tile
+updateResourceTile _ _ tile =
+    case tile of
+        Resource _ ->
+            tile
+
+        _ ->
+            tile
+
+
+processLifeTiles : World -> World
+processLifeTiles world =
     let
-        world =
-            model.world
+        lifeTiles =
+            getLifeTiles world
+    in
+    List.foldl processLifeTile world lifeTiles
 
-        lifeLoc =
-            getLifeLocation world
 
+processLifeTile : ( Location, Tile ) -> World -> World
+processLifeTile ( lifeLoc, _ ) world =
+    let
         firstNeighbouringResource =
             getFirstNeighbouringResource world lifeLoc
     in
@@ -198,7 +218,7 @@ view model =
                 , if model.gameOver == False then
                     playControls model
                   else
-                    gameOverMessage model
+                    gameOverMessage
                 ]
         , div [ class "world", gridStyle model ] (Matrix.flatten (mapWithLocation renderTile model.world))
         ]
@@ -231,17 +251,18 @@ playControls model =
     ]
 
 
-gameOverMessage : Model -> List (Html Msg)
-gameOverMessage model =
+gameOverMessage : List (Html Msg)
+gameOverMessage =
     [ span [ style [ ( "color", "rgba(255, 0, 0, 1)" ), ( "font-weight", "bold" ) ] ] [ text "ENERGY DEPLETED. LIFE HAS ENDED." ] ]
 
 
+separator : Html msg
 separator =
     span [ style [ ( "margin", "0 0.1em" ) ] ] [ text " | " ]
 
 
 renderTile : Location -> Tile -> Html Msg
-renderTile tileLoc tile =
+renderTile _ tile =
     case tile of
         Life energy ->
             div [ style (( "background", "rgba(255, 0, 0, 1)" ) :: tileStyle) ] [ text (toString energy) ]
@@ -257,6 +278,7 @@ renderTile tileLoc tile =
             div [ style (( "background", "rgba(0, 0, 0, 0.8)" ) :: tileStyle) ] []
 
 
+tileStyle : List ( String, String )
 tileStyle =
     [ ( "align-content", "center" )
     , ( "color", "rgba(255, 255, 255, 1)" )

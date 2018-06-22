@@ -1,45 +1,17 @@
 module World exposing (..)
 
 import Matrix exposing (Location, Matrix, loc)
-import Tile exposing (..)
+import Tile exposing (Tile(..), isLifeTile, isResourceTile, tileEnergy)
 
 
 type alias World =
     Matrix Tile
 
 
-getLifeTileWithLocation : World -> ( Location, Tile )
-getLifeTileWithLocation world =
-    let
-        life =
-            getAllTilesWithLocation world
-                |> List.filter (\( _, tile ) -> isLifeTile tile)
-                |> List.head
-    in
-    case life of
-        Just pair ->
-            pair
-
-        Nothing ->
-            Debug.crash "Couldn't find a life tile in the world!"
-
-
-getLifeLocation : World -> Location
-getLifeLocation world =
-    let
-        ( loc, _ ) =
-            getLifeTileWithLocation world
-    in
-    loc
-
-
-getLifeTile : World -> Tile
-getLifeTile world =
-    let
-        ( _, life ) =
-            getLifeTileWithLocation world
-    in
-    life
+getLifeTiles : World -> List ( Location, Tile )
+getLifeTiles world =
+    getAllTilesWithLocation world
+        |> List.filter (\( _, tile ) -> isLifeTile tile)
 
 
 getAllTilesWithLocation : World -> List ( Location, Tile )
@@ -87,14 +59,11 @@ moveTowardsBestResource world lifeLoc =
                 Just (Life energy) ->
                     energy
 
-                Just notLifeTile ->
-                    Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found " ++ toString notLifeTile
-
-                Nothing ->
-                    Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc ++ " but found nothing. Absolutely NOTHING"
+                _ ->
+                    Debug.crash <| "Expected to find life at tile " ++ toString lifeLoc
     in
     case closestResource of
-        Just ( resourceLoc, Resource energy ) ->
+        Just ( resourceLoc, Resource _ ) ->
             let
                 _ =
                     Debug.log "Moving towards closest resource" resourceLoc
@@ -165,9 +134,9 @@ distanceBetweenLocations l1 l2 =
 
 
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
-getFirstNeighbouringResource world location =
-    getNeighbours world location
-        |> List.map (\( loc, mTile ) -> ( loc, Maybe.withDefault Empty mTile ))
+getFirstNeighbouringResource world origin =
+    getNeighbours world origin
+        |> List.map (\( location, mTile ) -> ( location, Maybe.withDefault Empty mTile ))
         |> List.filter (\( _, tile ) -> isResourceTile tile)
         |> List.head
         |> Debug.log "First neighbouring resource"
