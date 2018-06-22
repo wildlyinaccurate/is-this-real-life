@@ -114,18 +114,18 @@ moveTowardsBestResource world lifeLoc =
                 newLifeTile =
                     Life (lifeEnergy - 1)
             in
-            if lRow > rRow then
-                Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc (lRow - 1) lCol) newLifeTile
-            else if lRow < rRow then
-                Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc (lRow + 1) lCol) newLifeTile
-            else if lCol > rCol then
+            if lCol > (rCol + 1) then
                 Matrix.set lifeLoc Empty world
                     |> Matrix.set (loc lRow (lCol - 1)) newLifeTile
-            else if lCol < rCol then
+            else if lCol < (rCol - 1) then
                 Matrix.set lifeLoc Empty world
                     |> Matrix.set (loc lRow (lCol + 1)) newLifeTile
+            else if lRow > (rRow + 1) then
+                Matrix.set lifeLoc Empty world
+                    |> Matrix.set (loc (lRow - 1) lCol) newLifeTile
+            else if lRow < (rRow - 1) then
+                Matrix.set lifeLoc Empty world
+                    |> Matrix.set (loc (lRow + 1) lCol) newLifeTile
             else
                 Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
 
