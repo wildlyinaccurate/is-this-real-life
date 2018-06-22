@@ -3,8 +3,16 @@ all:: push
 push: build
 	cd .build/ && git add . && git commit -m 'Build from source' && git push origin gh-pages
 
-build: clean clone
-	elm make --output .build/index.html src/Main.elm
+build: test clean clone elm
+
+elm: format
+	elm make --warn --output .build/index.html src/Main.elm
+
+format:
+	elm format --yes src/
+
+test:
+	elm analyse
 
 clone:
 	git clone --branch gh-pages git@github.com:wildlyinaccurate/is-this-real-life.git .build/
