@@ -122,7 +122,7 @@ moveLifeToTile lifeEnergy newTile =
             Life lifeEnergy
 
 
-relativeTileValue : Location -> Location -> Tile -> Float
+relativeTileValue : Location -> Location -> Tile -> Int
 relativeTileValue origin tileLoc tile =
     let
         distance =
@@ -131,10 +131,10 @@ relativeTileValue origin tileLoc tile =
         energy =
             tileEnergy tile
     in
-    toFloat energy - distance
+    energy - distance
 
 
-distanceBetweenLocations : Location -> Location -> Float
+distanceBetweenLocations : Location -> Location -> Int
 distanceBetweenLocations l1 l2 =
     let
         r1 =
@@ -149,7 +149,7 @@ distanceBetweenLocations l1 l2 =
         c2 =
             Matrix.col l2
     in
-    abs <| sqrt <| toFloat <| (c1 - c2) ^ 2 + (r1 - r2) ^ 2
+    abs (r1 - r2) + abs (c1 - c2) - 2
 
 
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
