@@ -189,7 +189,7 @@ updateStaticTile world tileLoc tile =
 
                 neighbouringResourceEnergy =
                     neighbouringResources
-                        |> List.map (\( _, tile ) -> getTileEnergy tile)
+                        |> List.map (\( _, resourceTile ) -> getTileEnergy resourceTile)
                         |> List.sum
             in
             if List.length neighbouringResources == 4 && lifeIsNearby == False then
