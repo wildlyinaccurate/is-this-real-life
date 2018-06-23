@@ -5,13 +5,13 @@ push: build
 
 build: test clean clone elm
 
-elm: format
+elm:
 	elm make --warn --output .build/index.html src/Main.elm
 
 format:
 	elm format --yes src/
 
-test:
+test: format
 	elm analyse
 
 clone:

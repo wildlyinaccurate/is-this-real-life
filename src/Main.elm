@@ -7,7 +7,7 @@ import Matrix exposing (Location, loc, mapWithLocation, set, square)
 import Random exposing (Generator)
 import Tile exposing (Tile(..), increaseTileEnergy, incrementLifeEnergy, tileEnergy)
 import Time exposing (Time, millisecond)
-import World exposing (World, getFirstNeighbouringResource, getLifeTiles, moveTowardsBestResource)
+import World exposing (World, getEggTiles, getFirstNeighbouringEmpty, getFirstNeighbouringResource, getLifeTiles, moveTowardsBestResource)
 
 
 randomResourceParams : Generator ( Int, Int, Int )
@@ -50,6 +50,16 @@ worldSize =
     24
 
 
+lifeStartingEnergy : Int
+lifeStartingEnergy =
+    20
+
+
+eggHatchSteps : Int
+eggHatchSteps =
+    20
+
+
 randomEventChance : Int
 randomEventChance =
     worldSize * 3
@@ -57,7 +67,7 @@ randomEventChance =
 
 randomResourceChance : Int
 randomResourceChance =
-    6
+    8
 
 
 initialModel : Model
@@ -68,16 +78,12 @@ initialModel =
     , autoplaySpeed = 5
     , world =
         square worldSize (\_ -> Empty)
-            |> set (loc 11 11) (Life 20)
-            |> set (loc 2 14) (Resource 2)
-            |> set (loc 3 22) (Resource 6)
-            |> set (loc 5 6) (Resource 5)
-            |> set (loc 7 7) (Resource 10)
-            |> set (loc 10 11) (Resource 6)
-            |> set (loc 14 4) (Resource 7)
-            |> set (loc 17 9) (Resource 9)
-            |> set (loc 14 21) (Resource 1)
-            |> set (loc 23 17) (Resource 4)
+            |> set (loc 0 0) (Egg eggHatchSteps)
+            |> set (loc 2 2) (Resource 6)
+            |> set (loc 3 3) (Resource 5)
+            |> set (loc 13 18) (Resource 4)
+            |> set (loc 14 18) (Resource 3)
+            |> set (loc 14 19) (Resource 10)
     }
 
 
@@ -121,8 +127,11 @@ update msg model =
                     getLifeTiles model.world
                         |> List.map (\( _, tile ) -> tileEnergy tile)
                         |> List.sum
+
+                eggsInPlay =
+                    List.length <| getEggTiles model.world
             in
-            if allLifeEnergy == 0 then
+            if allLifeEnergy == 0 && eggsInPlay == 0 then
                 ( { model | autoplay = False, gameOver = True }, Cmd.none )
             else
                 ( { model | step = model.step + 1, world = updateWorld model.world }, Random.generate RandomEvent (Random.int 1 randomEventChance) )
@@ -143,20 +152,26 @@ update msg model =
 
 updateWorld : World -> World
 updateWorld world =
-    updateResourceTiles world
+    updateStaticTiles world
         |> processLifeTiles
 
 
-updateResourceTiles : World -> World
-updateResourceTiles world =
-    Matrix.mapWithLocation (updateResourceTile world) world
+updateStaticTiles : World -> World
+updateStaticTiles world =
+    Matrix.mapWithLocation (updateStaticTile world) world
 
 
-updateResourceTile : World -> Location -> Tile -> Tile
-updateResourceTile _ _ tile =
+updateStaticTile : World -> Location -> Tile -> Tile
+updateStaticTile _ _ tile =
     case tile of
         Resource _ ->
             tile
+
+        Egg stepsToHatch ->
+            if stepsToHatch == 1 then
+                Life lifeStartingEnergy
+            else
+                Egg (stepsToHatch - 1)
 
         _ ->
             tile
@@ -172,7 +187,31 @@ processLifeTiles world =
 
 
 processLifeTile : ( Location, Tile ) -> World -> World
-processLifeTile ( lifeLoc, _ ) world =
+processLifeTile ( lifeLoc, lifeTile ) world =
+    if tileEnergy lifeTile >= 50 then
+        case getFirstNeighbouringEmpty world lifeLoc of
+            Just ( emptyTileLoc, _ ) ->
+                reproduce ( lifeLoc, lifeTile ) emptyTileLoc world
+
+            _ ->
+                aquireEnergyFromResources ( lifeLoc, lifeTile ) world
+    else
+        aquireEnergyFromResources ( lifeLoc, lifeTile ) world
+
+
+reproduce : ( Location, Tile ) -> Location -> World -> World
+reproduce ( lifeLoc, lifeTile ) spawnLoc world =
+    case lifeTile of
+        Life energy ->
+            Matrix.set lifeLoc (Life (energy - lifeStartingEnergy)) world
+                |> Matrix.set spawnLoc (Egg eggHatchSteps)
+
+        _ ->
+            world
+
+
+aquireEnergyFromResources : ( Location, Tile ) -> World -> World
+aquireEnergyFromResources ( lifeLoc, _ ) world =
     let
         firstNeighbouringResource =
             getFirstNeighbouringResource world lifeLoc
@@ -186,11 +225,8 @@ processLifeTile ( lifeLoc, _ ) world =
                 Matrix.update location (\_ -> Empty) world
                     |> Matrix.update lifeLoc incrementLifeEnergy
 
-        Nothing ->
-            moveTowardsBestResource world lifeLoc
-
         _ ->
-            world
+            moveTowardsBestResource world lifeLoc
 
 
 
@@ -266,6 +302,9 @@ renderTile _ tile =
     case tile of
         Life energy ->
             div [ style (( "background", "rgba(255, 0, 0, 1)" ) :: tileStyle) ] [ text (toString energy) ]
+
+        Egg stepsToHatch ->
+            div [ style (( "background", "rgba(0, 0, 255, 1)" ) :: tileStyle) ] [ text (toString stepsToHatch) ]
 
         Resource energy ->
             let

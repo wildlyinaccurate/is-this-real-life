@@ -4,6 +4,7 @@ module Tile exposing (..)
 type Tile
     = Life Int
     | Resource Int
+    | Egg Int
     | Empty
 
 
@@ -16,7 +17,7 @@ tileEnergy tile =
         Life energy ->
             energy
 
-        Empty ->
+        _ ->
             0
 
 
@@ -24,6 +25,16 @@ isLifeTile : Tile -> Bool
 isLifeTile tile =
     case tile of
         Life _ ->
+            True
+
+        _ ->
+            False
+
+
+isEggTile : Tile -> Bool
+isEggTile tile =
+    case tile of
+        Egg _ ->
             True
 
         _ ->
@@ -40,12 +51,26 @@ isResourceTile tile =
             False
 
 
+isEmptyTile : Tile -> Bool
+isEmptyTile tile =
+    case tile of
+        Empty ->
+            True
+
+        _ ->
+            False
+
+
 increaseTileEnergy : Int -> Tile -> Tile
 increaseTileEnergy amount tile =
     case tile of
         Life _ ->
             tile
                 |> Debug.log "Life was blessed with random energy but the world is cruel coveted the energy for itself"
+
+        Egg _ ->
+            tile
+                |> Debug.log "Egg was blessed with random energy but the world is cruel coveted the energy for itself"
 
         Resource energy ->
             Resource (energy + amount)

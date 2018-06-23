@@ -1,7 +1,7 @@
 module World exposing (..)
 
 import Matrix exposing (Location, Matrix, loc)
-import Tile exposing (Tile(..), isLifeTile, isResourceTile, tileEnergy)
+import Tile exposing (Tile(..), isEggTile, isEmptyTile, isLifeTile, isResourceTile, tileEnergy)
 
 
 type alias World =
@@ -12,6 +12,12 @@ getLifeTiles : World -> List ( Location, Tile )
 getLifeTiles world =
     getAllTilesWithLocation world
         |> List.filter (\( _, tile ) -> isLifeTile tile)
+
+
+getEggTiles : World -> List ( Location, Tile )
+getEggTiles world =
+    getAllTilesWithLocation world
+        |> List.filter (\( _, tile ) -> isEggTile tile)
 
 
 getAllTilesWithLocation : World -> List ( Location, Tile )
@@ -80,27 +86,40 @@ moveTowardsBestResource world lifeLoc =
                 rCol =
                     Matrix.col resourceLoc
 
-                newLifeTile =
-                    Life (lifeEnergy - 1)
+                newLifeEnergy =
+                    lifeEnergy - 1
             in
             if lCol > (rCol + 1) then
                 Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc lRow (lCol - 1)) newLifeTile
+                    |> Matrix.update (loc lRow (lCol - 1)) (moveLifeToTile newLifeEnergy)
             else if lCol < (rCol - 1) then
                 Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc lRow (lCol + 1)) newLifeTile
+                    |> Matrix.update (loc lRow (lCol + 1)) (moveLifeToTile newLifeEnergy)
             else if lRow > (rRow + 1) then
                 Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc (lRow - 1) lCol) newLifeTile
+                    |> Matrix.update (loc (lRow - 1) lCol) (moveLifeToTile newLifeEnergy)
             else if lRow < (rRow - 1) then
                 Matrix.set lifeLoc Empty world
-                    |> Matrix.set (loc (lRow + 1) lCol) newLifeTile
+                    |> Matrix.update (loc (lRow + 1) lCol) (moveLifeToTile newLifeEnergy)
             else
                 Debug.crash "Trying to move life tile towards a resource but it's already right next to it?!"
 
         _ ->
             Matrix.set lifeLoc (Life (lifeEnergy - 1)) world
                 |> Debug.log "No more resources to move to. Staying put."
+
+
+moveLifeToTile : Int -> Tile -> Tile
+moveLifeToTile lifeEnergy newTile =
+    case newTile of
+        Life newTileEnergy ->
+            Life (lifeEnergy + newTileEnergy) |> Debug.log "Two lifeforms collided!"
+
+        Egg _ ->
+            Life lifeEnergy |> Debug.log "An egg was squahed :("
+
+        _ ->
+            Life lifeEnergy
 
 
 relativeTileValue : Location -> Location -> Tile -> Float
@@ -135,11 +154,22 @@ distanceBetweenLocations l1 l2 =
 
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringResource world origin =
+    getFirstNeighbourBy isResourceTile world origin
+        |> Debug.log "First neighbouring resource"
+
+
+getFirstNeighbouringEmpty : World -> Location -> Maybe ( Location, Tile )
+getFirstNeighbouringEmpty world origin =
+    getFirstNeighbourBy isEmptyTile world origin
+        |> Debug.log "First neighbouring empty tile"
+
+
+getFirstNeighbourBy : (Tile -> Bool) -> World -> Location -> Maybe ( Location, Tile )
+getFirstNeighbourBy f world origin =
     getNeighbours world origin
         |> List.map (\( location, mTile ) -> ( location, Maybe.withDefault Empty mTile ))
-        |> List.filter (\( _, tile ) -> isResourceTile tile)
+        |> List.filter (\( _, tile ) -> f tile)
         |> List.head
-        |> Debug.log "First neighbouring resource"
 
 
 getNeighbours : World -> Location -> List ( Location, Maybe Tile )
