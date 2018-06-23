@@ -1,7 +1,7 @@
 module World exposing (..)
 
 import Matrix exposing (Location, Matrix, loc)
-import Tile exposing (Tile(..), isEggTile, isEmptyTile, isLifeTile, isResourceTile, tileEnergy)
+import Tile exposing (Tile(..), getTileEnergy, isEggTile, isEmptyTile, isLifeTile, isResourceTile)
 
 
 type alias World =
@@ -129,7 +129,7 @@ relativeTileValue origin tileLoc tile =
             distanceBetweenLocations origin tileLoc
 
         energy =
-            tileEnergy tile
+            getTileEnergy tile
     in
     energy - distance
 
@@ -152,24 +152,43 @@ distanceBetweenLocations l1 l2 =
     abs (r1 - r2) + abs (c1 - c2) - 2
 
 
+getNeighbouringResources : World -> Location -> List ( Location, Tile )
+getNeighbouringResources world origin =
+    getNeighboursBy isResourceTile world origin
+
+
 getFirstNeighbouringResource : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringResource world origin =
-    getFirstNeighbourBy isResourceTile world origin
+    getNeighboursBy isResourceTile world origin
+        |> List.head
         |> Debug.log "First neighbouring resource"
 
 
 getFirstNeighbouringEmpty : World -> Location -> Maybe ( Location, Tile )
 getFirstNeighbouringEmpty world origin =
-    getFirstNeighbourBy isEmptyTile world origin
+    getNeighboursBy isEmptyTile world origin
+        |> List.head
         |> Debug.log "First neighbouring empty tile"
 
 
-getFirstNeighbourBy : (Tile -> Bool) -> World -> Location -> Maybe ( Location, Tile )
-getFirstNeighbourBy f world origin =
+getFirstNeighbouringLife : World -> Location -> Maybe ( Location, Tile )
+getFirstNeighbouringLife world origin =
+    getNeighboursBy isLifeTile world origin
+        |> List.head
+
+
+getNeighbouringEnergy : World -> Location -> Int
+getNeighbouringEnergy world origin =
+    getNeighboursBy isResourceTile world origin
+        |> List.map (\( _, tile ) -> getTileEnergy tile)
+        |> List.sum
+
+
+getNeighboursBy : (Tile -> Bool) -> World -> Location -> List ( Location, Tile )
+getNeighboursBy f world origin =
     getNeighbours world origin
         |> List.map (\( location, mTile ) -> ( location, Maybe.withDefault Empty mTile ))
         |> List.filter (\( _, tile ) -> f tile)
-        |> List.head
 
 
 getNeighbours : World -> Location -> List ( Location, Maybe Tile )

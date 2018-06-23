@@ -5,9 +5,9 @@ import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick)
 import Matrix exposing (Location, loc, mapWithLocation, set, square)
 import Random exposing (Generator)
-import Tile exposing (Tile(..), increaseTileEnergy, incrementLifeEnergy, tileEnergy)
+import Tile exposing (Tile(..), getTileEnergy, increaseTileEnergy, incrementLifeEnergy)
 import Time exposing (Time, millisecond)
-import World exposing (World, getEggTiles, getFirstNeighbouringEmpty, getFirstNeighbouringResource, getLifeTiles, moveTowardsBestResource)
+import World exposing (World, getEggTiles, getFirstNeighbouringEmpty, getFirstNeighbouringLife, getFirstNeighbouringResource, getLifeTiles, getNeighbouringResources, moveTowardsBestResource)
 
 
 randomResourceParams : Generator ( Int, Int, Int )
@@ -57,7 +57,7 @@ lifeStartingEnergy =
 
 eggHatchSteps : Int
 eggHatchSteps =
-    20
+    lifeStartingEnergy * 2
 
 
 randomEventChance : Int
@@ -78,9 +78,10 @@ initialModel =
     , autoplaySpeed = 5
     , world =
         square worldSize (\_ -> Empty)
-            |> set (loc 0 0) (Egg eggHatchSteps)
+            |> set (loc 0 0) (Egg 10)
             |> set (loc 2 2) (Resource 6)
             |> set (loc 3 3) (Resource 5)
+            |> set (loc 12 18) (Resource 6)
             |> set (loc 13 18) (Resource 4)
             |> set (loc 14 18) (Resource 3)
             |> set (loc 14 19) (Resource 10)
@@ -125,7 +126,7 @@ update msg model =
             let
                 allLifeEnergy =
                     getLifeTiles model.world
-                        |> List.map (\( _, tile ) -> tileEnergy tile)
+                        |> List.map (\( _, tile ) -> getTileEnergy tile)
                         |> List.sum
 
                 eggsInPlay =
@@ -162,9 +163,9 @@ updateStaticTiles world =
 
 
 updateStaticTile : World -> Location -> Tile -> Tile
-updateStaticTile _ _ tile =
+updateStaticTile world tileLoc tile =
     case tile of
-        Resource _ ->
+        Life _ ->
             tile
 
         Egg stepsToHatch ->
@@ -172,6 +173,33 @@ updateStaticTile _ _ tile =
                 Life lifeStartingEnergy
             else
                 Egg (stepsToHatch - 1)
+
+        Empty ->
+            let
+                lifeIsNearby =
+                    case getFirstNeighbouringLife world tileLoc of
+                        Nothing ->
+                            False
+
+                        _ ->
+                            True
+
+                neighbouringResources =
+                    getNeighbouringResources world tileLoc
+
+                neighbouringResourceEnergy =
+                    neighbouringResources
+                        |> List.map (\( _, tile ) -> getTileEnergy tile)
+                        |> List.sum
+            in
+            if List.length neighbouringResources == 4 && lifeIsNearby == False then
+                Resource 1
+                    |> Debug.log "Tile had enough surrounding resources to bloom into a resource"
+            else if neighbouringResourceEnergy >= 20 && lifeIsNearby == False then
+                Resource 2
+                    |> Debug.log "Tile had enough surrounding energy to bloom into a resource"
+            else
+                tile
 
         _ ->
             tile
@@ -188,7 +216,13 @@ processLifeTiles world =
 
 processLifeTile : ( Location, Tile ) -> World -> World
 processLifeTile ( lifeLoc, lifeTile ) world =
-    if tileEnergy lifeTile >= 50 then
+    let
+        lifeEnergy =
+            getTileEnergy lifeTile
+    in
+    if lifeEnergy == 0 then
+        Matrix.set (lifeLoc |> Debug.log "Life ran out of energy and died") Empty world
+    else if lifeEnergy >= 50 then
         case getFirstNeighbouringEmpty world lifeLoc of
             Just ( emptyTileLoc, _ ) ->
                 reproduce ( lifeLoc, lifeTile ) emptyTileLoc world

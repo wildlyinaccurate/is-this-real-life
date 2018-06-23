@@ -8,8 +8,8 @@ type Tile
     | Empty
 
 
-tileEnergy : Tile -> Int
-tileEnergy tile =
+getTileEnergy : Tile -> Int
+getTileEnergy tile =
     case tile of
         Resource energy ->
             energy
