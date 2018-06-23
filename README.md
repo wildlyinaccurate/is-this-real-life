@@ -2,6 +2,8 @@
 
 Or just a simulation? [Find out for yourself](https://wildlyinaccurate.com/is-this-real-life/).
 
+![](./screenshot.png)
+
 ## Develop
 
 You need to [install Elm](https://guide.elm-lang.org/install.html) to hack on this project.
